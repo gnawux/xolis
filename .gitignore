@@ -1,0 +1,36 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Shell and environment files
+.env
+.env.*
+!.env.example
+*.swp
+*.swo
+*~
+*.log
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
