@@ -76,6 +76,73 @@ Use the example configuration at tools/xolis_aws_lab.example.json as a starting 
 
 The readiness command is intentionally configurable because Xolis has not yet fixed its Agent Sandbox manifest or readiness contract.
 
+## Quick Start
+
+This tool orchestrates an existing Terraform root and Kubernetes manifests; it does not yet supply the EKS Terraform modules or the Kata, Nydus, Agent Sandbox, and smoke-test manifests. Provide those inputs before attempting a real deployment. A dry run can be used before they exist.
+
+### 1. Install Local Tools
+
+Install the following tools and make them available on `PATH`:
+
+- Python 3.11 or later.
+- AWS CLI version 2.
+- Terraform.
+- `kubectl` compatible with the target EKS cluster version.
+- Helm when the bootstrap procedure uses Helm.
+
+Confirm the local installation:
+
+    python3 --version
+    aws --version
+    terraform version
+    kubectl version --client
+    helm version
+
+### 2. Prepare an Isolated AWS Account and Identity
+
+Use a dedicated AWS account for the lab, or at minimum an isolated development VPC, in `ap-northeast-1`. Do not use the AWS root user or root access keys.
+
+Use AWS IAM Identity Center (SSO) or short-lived credentials from an IAM role. Create a named AWS CLI profile for the lab and select it before invoking the tool:
+
+    aws configure sso --profile xolis-lab
+    aws sso login --profile xolis-lab
+    export AWS_PROFILE=xolis-lab
+    aws sts get-caller-identity
+
+Long-lived access keys (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) are not required and are discouraged. If an IAM user must be used temporarily, use a dedicated least-privilege user, store its credentials only in the AWS CLI credential store or a secret manager, and never place them in the lab JSON file or Git.
+
+The identity used by Terraform needs permissions appropriate to the supplied infrastructure modules, typically for VPC, EC2, IAM, EKS, ECR, CloudWatch, and the configured Terraform state backend. The identity used for test cycles needs at least permission to describe the EKS cluster and node group and to update the dedicated node group's scaling configuration. Grant the authenticated IAM principal Kubernetes access to apply, get, and delete the configured bootstrap and test resources. Configure these permissions through IAM policies and EKS access entries or Kubernetes RBAC before the first test.
+
+### 3. Provide Lab Inputs
+
+Before a non-dry-run command, prepare all of the following:
+
+- A Terraform root that creates or references the target VPC, EKS cluster, and a dedicated sandbox managed node group. Configure a remote, locked Terraform state backend for shared use.
+- Bootstrap manifests that install and configure the required sandbox runtime components.
+- A test workload manifest and a readiness command that reflects its actual readiness contract.
+- A sandbox node selector that matches nodes in the dedicated node group. Do not use a shared or production node group.
+
+Copy the example configuration, then replace every placeholder with these paths and resource names:
+
+    cp tools/xolis_aws_lab.example.json tools/xolis_aws_lab.json
+
+### 4. Validate and Run
+
+Preview the full command sequence first. Dry-run does not contact AWS or require the configured paths to exist:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json --dry-run cycle run
+
+After the Terraform root and manifests are available, validate the local tools and AWS identity, review the Terraform plan, and explicitly approve only the intended changes:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json doctor
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra plan
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra apply
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
+
+The cycle removes its test resources and stops the sandbox node group even if its readiness check fails. Destroying the infrastructure remains an explicit operator action:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra destroy
+
 ## Required Local Dependencies
 
 - Python 3.11 or later.
