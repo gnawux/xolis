@@ -6,7 +6,7 @@ This document defines the tooling strategy for repeatable Xolis minimal-deployme
 
 Use a hybrid design:
 
-- Terraform manages persistent AWS infrastructure.
+- OpenTofu manages persistent AWS infrastructure.
 - A Python command-line tool manages node bootstrap and each disposable test cycle.
 - AWS CLI, kubectl, and Helm remain the underlying execution interfaces.
 
@@ -14,19 +14,19 @@ Do not use an unstructured collection of shell scripts as the primary workflow. 
 
 ## Rationale
 
-### Terraform for Persistent Infrastructure
+### OpenTofu for Persistent Infrastructure
 
 The persistent layer includes the VPC, subnets, IAM roles, EKS control plane, system node group, sandbox node group launch template, security groups, ECR repositories, and optional state backend.
 
-Terraform provides a reviewed plan before mutation, tracks the remote objects it owns in state, and can intentionally destroy temporary environments. This is important because an EKS test environment has interdependent resources and can otherwise leave chargeable infrastructure behind.
+OpenTofu provides a reviewed plan before mutation, tracks the remote objects it owns in state, and can intentionally destroy temporary environments. This is important because an EKS test environment has interdependent resources and can otherwise leave chargeable infrastructure behind.
 
-Terraform should not perform dynamic in-cluster test actions. Kubernetes resources, test artifacts, and node scaling have a shorter lifecycle and need runtime assertions, log collection, and guaranteed cleanup.
+OpenTofu should not perform dynamic in-cluster test actions. Kubernetes resources, test artifacts, and node scaling have a shorter lifecycle and need runtime assertions, log collection, and guaranteed cleanup.
 
 ### Python CLI for Test Cycles
 
 The test-cycle tool owns the imperative sequence:
 
-1. Initialize or apply the Terraform environment.
+1. Initialize or apply the OpenTofu environment.
 2. Create kubeconfig access.
 3. Start the sandbox node group.
 4. Wait until a labelled sandbox node is Ready.
@@ -45,11 +45,11 @@ Shell remains useful inside AMI builds and short bootstrap actions. It is not th
 
 ### Why Not CloudFormation First
 
-CloudFormation can create EKS and EC2 resources, but it does not simplify the imperative Kubernetes test loop. Terraform provides a more portable module ecosystem and a familiar plan, state, and destroy workflow for a future multi-cloud project. CloudFormation can remain an integration option for AWS-only customers.
+CloudFormation can create EKS and EC2 resources, but it does not simplify the imperative Kubernetes test loop. OpenTofu provides a portable module ecosystem, community governance, and a familiar plan, state, and destroy workflow for a future multi-cloud project. CloudFormation can remain an integration option for AWS-only customers.
 
 ## Tool Boundary
 
-The first tool does not create an AMI or implement an Agent Sandbox snapshot API. It treats AMI creation as an input to Terraform and records a Kubernetes resource snapshot after a test starts.
+The first tool does not create an AMI or implement an Agent Sandbox snapshot API. It treats AMI creation as an input to OpenTofu and records a Kubernetes resource snapshot after a test starts.
 
 The resource snapshot is diagnostic evidence. It is not a filesystem or VM checkpoint. A real sandbox checkpoint must be added later through a validated Agent Sandbox or Kata snapshot capability.
 
@@ -66,19 +66,19 @@ The xolis_aws_lab.py tool uses a JSON configuration file and supports:
     bootstrap
     cycle run
 
-The infra commands delegate to Terraform. The node commands scale only the configured sandbox EKS managed node group. The cycle command runs start, test, snapshot, cleanup, and stop in order. Cleanup and node stop run even if the workload readiness check fails.
+The infra commands delegate to OpenTofu. The node commands scale only the configured sandbox EKS managed node group. The cycle command runs start, test, snapshot, cleanup, and stop in order. Cleanup and node stop run even if the workload readiness check fails.
 
-All mutating commands support a dry-run flag. Dry-run validates the JSON configuration but does not require the configured Terraform directory or Kubernetes manifests to exist, so an operator can preview a new configuration before deployment inputs are available. The tool does not pass automatic approval to Terraform; the operator must explicitly approve Terraform apply or destroy.
+All mutating commands support a dry-run flag. Dry-run validates the JSON configuration but does not require the configured OpenTofu directory or Kubernetes manifests to exist, so an operator can preview a new configuration before deployment inputs are available. The tool does not pass automatic approval to OpenTofu; the operator must explicitly approve OpenTofu apply or destroy.
 
 ## Configuration
 
-Use the example configuration at tools/xolis_aws_lab.example.json as a starting point. It defaults to the Tokyo Region (`ap-northeast-1`) and identifies the cluster, Region, sandbox node group, node selector, Terraform directory, bootstrap manifests, workload manifest, readiness command, and artifact directory.
+Use the example configuration at tools/xolis_aws_lab.example.json as a starting point. It defaults to the Tokyo Region (`ap-northeast-1`) and identifies the cluster, Region, sandbox node group, node selector, OpenTofu directory, bootstrap manifests, workload manifest, readiness command, and artifact directory.
 
 The readiness command is intentionally configurable because Xolis has not yet fixed its Agent Sandbox manifest or readiness contract.
 
 ## Quick Start
 
-This tool orchestrates an existing Terraform root and Kubernetes manifests; it does not yet supply the EKS Terraform modules or the Kata, Nydus, Agent Sandbox, and smoke-test manifests. Provide those inputs before attempting a real deployment. A dry run can be used before they exist.
+This tool orchestrates an existing OpenTofu root and Kubernetes manifests; it does not yet supply the EKS OpenTofu modules or the Kata, Nydus, Agent Sandbox, and smoke-test manifests. Provide those inputs before attempting a real deployment. A dry run can be used before they exist.
 
 ### 1. Install Local Tools
 
@@ -86,7 +86,7 @@ Install the following tools and make them available on `PATH`:
 
 - Python 3.11 or later.
 - AWS CLI version 2.
-- Terraform.
+- OpenTofu.
 - `kubectl` compatible with the target EKS cluster version.
 - Helm when the bootstrap procedure uses Helm.
 
@@ -94,7 +94,7 @@ Confirm the local installation:
 
     python3 --version
     aws --version
-    terraform version
+    tofu version
     kubectl version --client
     helm version
 
@@ -111,13 +111,13 @@ Use AWS IAM Identity Center (SSO) or short-lived credentials from an IAM role. C
 
 Long-lived access keys (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) are not required and are discouraged. If an IAM user must be used temporarily, use a dedicated least-privilege user, store its credentials only in the AWS CLI credential store or a secret manager, and never place them in the lab JSON file or Git.
 
-The identity used by Terraform needs permissions appropriate to the supplied infrastructure modules, typically for VPC, EC2, IAM, EKS, ECR, CloudWatch, and the configured Terraform state backend. The identity used for test cycles needs at least permission to describe the EKS cluster and node group and to update the dedicated node group's scaling configuration. Grant the authenticated IAM principal Kubernetes access to apply, get, and delete the configured bootstrap and test resources. Configure these permissions through IAM policies and EKS access entries or Kubernetes RBAC before the first test.
+The identity used by OpenTofu needs permissions appropriate to the supplied infrastructure modules, typically for VPC, EC2, IAM, EKS, ECR, CloudWatch, and the configured state backend. The identity used for test cycles needs at least permission to describe the EKS cluster and node group and to update the dedicated node group's scaling configuration. Grant the authenticated IAM principal Kubernetes access to apply, get, and delete the configured bootstrap and test resources. Configure these permissions through IAM policies and EKS access entries or Kubernetes RBAC before the first test.
 
 ### 3. Provide Lab Inputs
 
 Before a non-dry-run command, prepare all of the following:
 
-- A Terraform root that creates or references the target VPC, EKS cluster, and a dedicated sandbox managed node group. Configure a remote, locked Terraform state backend for shared use.
+- An OpenTofu root that creates or references the target VPC, EKS cluster, and a dedicated sandbox managed node group. Configure a remote, locked state backend for shared use.
 - Bootstrap manifests that install and configure the required sandbox runtime components.
 - A test workload manifest and a readiness command that reflects its actual readiness contract.
 - A sandbox node selector that matches nodes in the dedicated node group. Do not use a shared or production node group.
@@ -132,7 +132,7 @@ Preview the full command sequence first. Dry-run does not contact AWS or require
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json --dry-run cycle run
 
-After the Terraform root and manifests are available, validate the local tools and AWS identity, review the Terraform plan, and explicitly approve only the intended changes:
+After the OpenTofu root and manifests are available, validate the local tools and AWS identity, review the OpenTofu plan, and explicitly approve only the intended changes:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json doctor
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra plan
@@ -146,7 +146,7 @@ The cycle removes its test resources and stops the sandbox node group even if it
 ## Required Local Dependencies
 
 - Python 3.11 or later.
-- Terraform.
+- OpenTofu.
 - AWS CLI authenticated to the target account.
 - kubectl configured by the tool from the target EKS cluster.
 - Helm when a bootstrap manifest or installation process requires it.
@@ -154,10 +154,10 @@ The cycle removes its test resources and stops the sandbox node group even if it
 ## Safety Rules
 
 - Use a dedicated AWS account or an isolated development VPC for the first tests.
-- Terraform state must be remote and locked before shared use.
+- OpenTofu state must be remote and locked before shared use.
 - The sandbox node group must be dedicated to Xolis and have a maximum size appropriate for the test.
 - Do not use the stop command against a shared or production node group.
-- Review Terraform plans before apply and destroy.
+- Review OpenTofu plans before apply and destroy.
 - Store test logs and snapshots outside of Git.
 - Test destructive cleanup in an isolated account before using the tool for cost-sensitive environments.
 
@@ -165,7 +165,7 @@ The cycle removes its test resources and stops the sandbox node group even if it
 
 The first version intentionally defers:
 
-- Terraform modules for the full EKS environment.
+- OpenTofu modules for the full EKS environment.
 - AMI image build automation.
 - Installation of Kata, Nydus, and Agent Sandbox from version-pinned packages.
 - Agent Sandbox API-level snapshots.
@@ -174,9 +174,9 @@ The first version intentionally defers:
 
 ## References
 
-- [Terraform plan](https://developer.hashicorp.com/terraform/cli/commands/plan)
-- [Terraform destroy](https://developer.hashicorp.com/terraform/cli/commands/destroy)
-- [Terraform state](https://developer.hashicorp.com/terraform/cli/state)
+- [OpenTofu plan](https://opentofu.org/docs/cli/commands/plan/)
+- [OpenTofu destroy](https://opentofu.org/docs/cli/commands/destroy/)
+- [OpenTofu state](https://opentofu.org/docs/language/state/)
 - [Amazon EKS launch templates](https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html)
 - [Amazon EKS managed and self-managed node groups](https://docs.aws.amazon.com/eks/latest/userguide/ml-node-groups.html)
 - [AWS CLI EKS node group waiter](https://docs.aws.amazon.com/cli/latest/reference/eks/wait/nodegroup-deleted.html)

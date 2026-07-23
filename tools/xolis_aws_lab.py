@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 
-REQUIRED_EXECUTABLES = ("aws", "kubectl", "terraform")
+REQUIRED_EXECUTABLES = ("aws", "kubectl", "tofu")
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,7 @@ class LabConfig:
     sandbox_min_size: int
     sandbox_desired_size: int
     sandbox_max_size: int
-    terraform_directory: Path
+    tofu_directory: Path
     bootstrap_manifests: tuple[Path, ...]
     test_manifest: Path
     ready_command: tuple[str, ...]
@@ -49,7 +49,7 @@ class LabConfig:
             "cluster_name",
             "sandbox_nodegroup",
             "sandbox_node_selector",
-            "terraform_directory",
+            "tofu_directory",
             "test_manifest",
             "ready_command",
             "artifact_directory",
@@ -67,7 +67,7 @@ class LabConfig:
             sandbox_min_size=int(data.get("sandbox_min_size", 0)),
             sandbox_desired_size=int(data.get("sandbox_desired_size", 1)),
             sandbox_max_size=int(data.get("sandbox_max_size", 1)),
-            terraform_directory=(base / data["terraform_directory"]).resolve(),
+            tofu_directory=(base / data["tofu_directory"]).resolve(),
             bootstrap_manifests=tuple((base / item).resolve() for item in data.get("bootstrap_manifests", [])),
             test_manifest=(base / data["test_manifest"]).resolve(),
             ready_command=tuple(str(item) for item in data["ready_command"]),
@@ -136,14 +136,14 @@ class AwsLab:
             ),
             capture_output=True,
         )
-        self.runner.run(("terraform", "-chdir=" + str(self.config.terraform_directory), "version"))
+        self.runner.run(("tofu", "-chdir=" + str(self.config.tofu_directory), "version"))
         print("Dependency and AWS credential checks completed.")
 
     def infra(self, action: str) -> None:
-        directory = self.config.terraform_directory
+        directory = self.config.tofu_directory
         if not self.runner.dry_run and not directory.is_dir():
-            raise RuntimeError(f"Terraform directory does not exist: {directory}")
-        prefix = ("terraform", "-chdir=" + str(directory))
+            raise RuntimeError(f"OpenTofu directory does not exist: {directory}")
+        prefix = ("tofu", "-chdir=" + str(directory))
         self.runner.run(prefix + ("init",))
         if action == "plan":
             self.runner.run(prefix + ("plan",))
@@ -284,7 +284,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Print commands without executing them.")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="Check local dependencies and AWS credentials.")
-    infra = commands.add_parser("infra", help="Delegate persistent infrastructure actions to Terraform.")
+    infra = commands.add_parser("infra", help="Delegate persistent infrastructure actions to OpenTofu.")
     infra.add_argument("action", choices=("plan", "apply", "destroy"))
     node = commands.add_parser("node", help="Scale the dedicated sandbox node group.")
     node.add_argument("action", choices=("start", "stop"))

@@ -6,7 +6,7 @@
   "sandbox_min_size": 0,
   "sandbox_desired_size": 1,
   "sandbox_max_size": 1,
-  "terraform_directory": "infra/aws/minimal",
+  "tofu_directory": "infra/aws/minimal",
   "bootstrap_manifests": [
     "deploy/bootstrap/kata-runtime.yaml",
     "deploy/bootstrap/agent-sandbox.yaml"

@@ -34,7 +34,7 @@ class DryRunTests(unittest.TestCase):
                     "cluster_name": "example-cluster",
                     "sandbox_nodegroup": "sandbox",
                     "sandbox_node_selector": "xolis.io/sandbox=true",
-                    "terraform_directory": "missing-infra",
+                    "tofu_directory": "missing-infra",
                     "bootstrap_manifests": ["missing-bootstrap.yaml"],
                     "test_manifest": "missing-test.yaml",
                     "ready_command": ["kubectl", "wait", "--for=condition=Ready", "pod/example"],
@@ -58,7 +58,7 @@ class DryRunTests(unittest.TestCase):
             self.assertIn("missing-bootstrap.yaml", log)
             self.assertIn("missing-test.yaml", log)
 
-    def test_infra_dry_run_does_not_require_terraform_directory(self) -> None:
+    def test_infra_dry_run_does_not_require_opentofu_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             config = MODULE.LabConfig.load(self.make_config(Path(temporary_directory)))
             lab = MODULE.AwsLab(config, dry_run=True)
@@ -66,7 +66,7 @@ class DryRunTests(unittest.TestCase):
             lab.infra("plan")
 
             command_log = next(config.artifact_directory.glob("*/commands.log"))
-            self.assertIn("terraform", command_log.read_text(encoding="utf-8"))
+            self.assertIn("tofu", command_log.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
