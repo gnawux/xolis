@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Xolis AWS lab test architecture</title>
+  <desc id="description">EKS control plane, a managed system node group, and a self-managed sandbox Auto Scaling group that explicitly grows for a test and returns to zero after cleanup.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#4b5563"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #172033; }
+      .title { font-size: 34px; font-weight: 700; }
+      .subtitle { font-size: 18px; fill: #526074; }
+      .heading { font-size: 20px; font-weight: 700; }
+      .body { font-size: 17px; }
+      .small { font-size: 15px; fill: #526074; }
+      .box { stroke-width: 2; rx: 18; }
+      .arrow { fill: none; stroke: #4b5563; stroke-width: 3; marker-end: url(#arrow); }
+      .dash { fill: none; stroke: #6b7280; stroke-width: 2.5; stroke-dasharray: 9 7; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#f7f9fc"/>
+  <text x="80" y="72" class="title">Xolis AWS Lab: explicit sandbox test capacity</text>
+  <text x="80" y="108" class="subtitle">The test tool scales a dedicated self-managed ASG from zero to one and back to zero; no workload-driven autoscaler is required.</text>
+
+  <rect x="70" y="155" width="1460" height="590" rx="24" fill="#ffffff" stroke="#cad5e4" stroke-width="2"/>
+  <text x="105" y="200" class="heading">AWS account · ap-northeast-1</text>
+
+  <rect x="120" y="245" width="430" height="150" class="box" fill="#e9f2ff" stroke="#2d6cdf"/>
+  <text x="155" y="290" class="heading">Amazon EKS control plane</text>
+  <text x="155" y="325" class="body">AWS-managed Kubernetes API and control plane</text>
+  <text x="155" y="355" class="small">Cluster access and kubeconfig supplied to the lab tool</text>
+
+  <rect x="120" y="465" width="430" height="205" class="box" fill="#eefaf3" stroke="#2c9c5c"/>
+  <text x="155" y="510" class="heading">EKS managed system node group</text>
+  <text x="155" y="545" class="body">CoreDNS · EKS add-ons · Agent Sandbox controller</text>
+  <text x="155" y="575" class="small">Kept available while the lab is in use</text>
+  <text x="155" y="615" class="small">Managed lifecycle is separate from the sandbox pool</text>
+
+  <rect x="725" y="225" width="710" height="465" class="box" fill="#fff7e8" stroke="#e58a00"/>
+  <text x="765" y="270" class="heading">Dedicated self-managed sandbox Auto Scaling group</text>
+  <text x="765" y="300" class="small">Created by OpenTofu; launch template uses the custom AL2023 sandbox AMI</text>
+
+  <rect x="775" y="345" width="610" height="210" class="box" fill="#ffffff" stroke="#e5b450"/>
+  <text x="815" y="390" class="heading">One EC2 sandbox node during a test</text>
+  <text x="815" y="425" class="body">containerd · Kata + Dragonball · Nydus</text>
+  <text x="815" y="457" class="body">xolis.io/kata-ready=true · dedicated taint</text>
+  <text x="815" y="495" class="small">Runs the isolated smoke sandbox workload</text>
+
+  <rect x="775" y="590" width="610" height="62" rx="12" fill="#fff1d8" stroke="#e5b450" stroke-width="1.5"/>
+  <text x="805" y="629" class="body">Idle state: no EC2 instance, min=0 · desired=0 · max=1</text>
+
+  <path d="M335 395 L335 465" class="arrow"/>
+  <path d="M550 320 C625 320, 650 385, 725 405" class="arrow"/>
+  <path d="M550 570 C640 570, 655 505, 775 490" class="arrow"/>
+
+  <rect x="70" y="775" width="1460" height="85" rx="18" fill="#eef1f6" stroke="#b8c2d0" stroke-width="1.5"/>
+  <text x="105" y="812" class="heading">Xolis AWS Lab tool test cycle</text>
+  <text x="105" y="842" class="body">start ASG (0/1/1) → wait for labelled Ready node → bootstrap + smoke test + snapshot → delete test resources → stop ASG (0/0/1)</text>
+  <path d="M1100 775 C1110 730, 1100 705, 1080 690" class="dash"/>
+</svg>

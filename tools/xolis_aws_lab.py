@@ -22,7 +22,7 @@ REQUIRED_EXECUTABLES = ("aws", "kubectl", "tofu")
 class LabConfig:
     region: str
     cluster_name: str
-    sandbox_nodegroup: str
+    sandbox_autoscaling_group: str
     sandbox_node_selector: str
     sandbox_min_size: int
     sandbox_desired_size: int
@@ -47,7 +47,7 @@ class LabConfig:
         required = (
             "region",
             "cluster_name",
-            "sandbox_nodegroup",
+            "sandbox_autoscaling_group",
             "sandbox_node_selector",
             "tofu_directory",
             "test_manifest",
@@ -62,7 +62,7 @@ class LabConfig:
         config = cls(
             region=str(data["region"]),
             cluster_name=str(data["cluster_name"]),
-            sandbox_nodegroup=str(data["sandbox_nodegroup"]),
+            sandbox_autoscaling_group=str(data["sandbox_autoscaling_group"]),
             sandbox_node_selector=str(data["sandbox_node_selector"]),
             sandbox_min_size=int(data.get("sandbox_min_size", 0)),
             sandbox_desired_size=int(data.get("sandbox_desired_size", 1)),
@@ -162,12 +162,16 @@ class AwsLab:
 
     def start_node(self) -> None:
         self.update_kubeconfig()
-        self.scale_nodegroup(self.config.sandbox_min_size, self.config.sandbox_desired_size, self.config.sandbox_max_size)
+        self.scale_autoscaling_group(
+            self.config.sandbox_min_size,
+            self.config.sandbox_desired_size,
+            self.config.sandbox_max_size,
+        )
         self.wait_for_nodes(expected_at_least=1, timeout_seconds=self.config.node_ready_timeout_seconds)
 
     def stop_node(self) -> None:
         self.update_kubeconfig()
-        self.scale_nodegroup(0, 0, self.config.sandbox_max_size)
+        self.scale_autoscaling_group(0, 0, self.config.sandbox_max_size)
         self.wait_for_nodes(expected_at_least=0, timeout_seconds=self.config.node_stop_timeout_seconds)
 
     def cycle(self) -> None:
@@ -195,35 +199,22 @@ class AwsLab:
             )
         )
 
-    def scale_nodegroup(self, minimum: int, desired: int, maximum: int) -> None:
-        scaling = f"minSize={minimum},desiredSize={desired},maxSize={maximum}"
+    def scale_autoscaling_group(self, minimum: int, desired: int, maximum: int) -> None:
         self.runner.run(
             (
                 "aws",
-                "eks",
-                "update-nodegroup-config",
+                "autoscaling",
+                "update-auto-scaling-group",
                 "--region",
                 self.config.region,
-                "--cluster-name",
-                self.config.cluster_name,
-                "--nodegroup-name",
-                self.config.sandbox_nodegroup,
-                "--scaling-config",
-                scaling,
-            )
-        )
-        self.runner.run(
-            (
-                "aws",
-                "eks",
-                "wait",
-                "nodegroup-active",
-                "--region",
-                self.config.region,
-                "--cluster-name",
-                self.config.cluster_name,
-                "--nodegroup-name",
-                self.config.sandbox_nodegroup,
+                "--auto-scaling-group-name",
+                self.config.sandbox_autoscaling_group,
+                "--min-size",
+                str(minimum),
+                "--desired-capacity",
+                str(desired),
+                "--max-size",
+                str(maximum),
             )
         )
 
@@ -259,7 +250,7 @@ class AwsLab:
             print(f"Wrote Kubernetes resource snapshot: {snapshot}")
 
     def cleanup_test_resources(self) -> None:
-        if self.config.test_manifest.is_file():
+        if self.runner.dry_run or self.config.test_manifest.is_file():
             try:
                 self.runner.run(("kubectl", "delete", "-f", str(self.config.test_manifest), "--wait=true"))
             except subprocess.CalledProcessError as error:
@@ -286,7 +277,7 @@ def parse_args() -> argparse.Namespace:
     commands.add_parser("doctor", help="Check local dependencies and AWS credentials.")
     infra = commands.add_parser("infra", help="Delegate persistent infrastructure actions to OpenTofu.")
     infra.add_argument("action", choices=("plan", "apply", "destroy"))
-    node = commands.add_parser("node", help="Scale the dedicated sandbox node group.")
+    node = commands.add_parser("node", help="Scale the dedicated sandbox Auto Scaling group.")
     node.add_argument("action", choices=("start", "stop"))
     commands.add_parser("bootstrap", help="Apply configured node bootstrap manifests.")
     cycle = commands.add_parser("cycle", help="Run a disposable sandbox workload test.")

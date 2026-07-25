@@ -16,7 +16,10 @@ Preview infrastructure changes:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra plan
 
-Run the complete disposable test cycle:
+Run the complete disposable test cycle. It explicitly starts the configured
+self-managed sandbox Auto Scaling group, runs the test, then removes the test
+resources and scales that group back to zero. It does not use workload-driven
+node autoscaling:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
 

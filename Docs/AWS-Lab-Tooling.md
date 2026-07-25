@@ -16,7 +16,7 @@ Do not use an unstructured collection of shell scripts as the primary workflow. 
 
 ### OpenTofu for Persistent Infrastructure
 
-The persistent layer includes the VPC, subnets, IAM roles, EKS control plane, system node group, sandbox node group launch template, security groups, ECR repositories, and optional state backend.
+The persistent layer includes the VPC, subnets, IAM roles, EKS control plane, system managed node group, sandbox self-managed Auto Scaling group and launch template, security groups, ECR repositories, and optional state backend.
 
 OpenTofu provides a reviewed plan before mutation, tracks the remote objects it owns in state, and can intentionally destroy temporary environments. This is important because an EKS test environment has interdependent resources and can otherwise leave chargeable infrastructure behind.
 
@@ -28,14 +28,14 @@ The test-cycle tool owns the imperative sequence:
 
 1. Initialize or apply the OpenTofu environment.
 2. Create kubeconfig access.
-3. Start the sandbox node group.
+3. Start the sandbox self-managed Auto Scaling group.
 4. Wait until a labelled sandbox node is Ready.
 5. Apply node bootstrap manifests.
 6. Apply a test workload manifest.
 7. Wait for the configured readiness check.
 8. Save a Kubernetes resource snapshot and command log.
 9. Delete the test resources.
-10. Stop the sandbox node group.
+10. Stop the sandbox self-managed Auto Scaling group.
 
 Python is selected because the initial tool can use the standard library, has good process and JSON handling, and can later use AWS and Kubernetes SDKs without changing its command interface.
 
@@ -66,13 +66,17 @@ The xolis_aws_lab.py tool uses a JSON configuration file and supports:
     bootstrap
     cycle run
 
-The infra commands delegate to OpenTofu. The node commands scale only the configured sandbox EKS managed node group. The cycle command runs start, test, snapshot, cleanup, and stop in order. Cleanup and node stop run even if the workload readiness check fails.
+The infra commands delegate to OpenTofu. The node commands scale only the configured sandbox self-managed Auto Scaling group through the AWS Auto Scaling API. The cycle command runs start, test, snapshot, cleanup, and stop in order. Cleanup and node stop run even if the workload readiness check fails.
+
+The lab deliberately uses explicit capacity rather than workload-driven node autoscaling. A test cycle changes the sandbox Auto Scaling group from `min=0, desired=0, max=1` to `min=0, desired=1, max=1`, waits for a labelled Kubernetes node to become Ready, and returns the group to zero after cleanup. Do not install Cluster Autoscaler or Karpenter for this initial test path. This makes test timing, cost, and cleanup deterministic.
+
+![AWS lab test architecture](assets/xolis-aws-lab-test-architecture.png)
 
 All mutating commands support a dry-run flag. Dry-run validates the JSON configuration but does not require the configured OpenTofu directory or Kubernetes manifests to exist, so an operator can preview a new configuration before deployment inputs are available. The tool does not pass automatic approval to OpenTofu; the operator must explicitly approve OpenTofu apply or destroy.
 
 ## Configuration
 
-Use the example configuration at tools/xolis_aws_lab.example.json as a starting point. It defaults to the Tokyo Region (`ap-northeast-1`) and identifies the cluster, Region, sandbox node group, node selector, OpenTofu directory, bootstrap manifests, workload manifest, readiness command, and artifact directory.
+Use the example configuration at tools/xolis_aws_lab.example.json as a starting point. It defaults to the Tokyo Region (`ap-northeast-1`) and identifies the cluster, Region, sandbox Auto Scaling group, node selector, OpenTofu directory, bootstrap manifests, workload manifest, readiness command, and artifact directory.
 
 The readiness command is intentionally configurable because Xolis has not yet fixed its Agent Sandbox manifest or readiness contract.
 
@@ -111,16 +115,16 @@ Use AWS IAM Identity Center (SSO) or short-lived credentials from an IAM role. C
 
 Long-lived access keys (`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`) are not required and are discouraged. If an IAM user must be used temporarily, use a dedicated least-privilege user, store its credentials only in the AWS CLI credential store or a secret manager, and never place them in the lab JSON file or Git.
 
-The identity used by OpenTofu needs permissions appropriate to the supplied infrastructure modules, typically for VPC, EC2, IAM, EKS, ECR, CloudWatch, and the configured state backend. The identity used for test cycles needs at least permission to describe the EKS cluster and node group and to update the dedicated node group's scaling configuration. Grant the authenticated IAM principal Kubernetes access to apply, get, and delete the configured bootstrap and test resources. Configure these permissions through IAM policies and EKS access entries or Kubernetes RBAC before the first test.
+The identity used by OpenTofu needs permissions appropriate to the supplied infrastructure modules, typically for VPC, EC2, Auto Scaling, IAM, EKS, ECR, CloudWatch, and the configured state backend. The identity used for test cycles needs at least permission to describe the EKS cluster and to update the dedicated Auto Scaling group's capacity. Grant the authenticated IAM principal Kubernetes access to apply, get, and delete the configured bootstrap and test resources. Configure these permissions through IAM policies and EKS access entries or Kubernetes RBAC before the first test.
 
 ### 3. Provide Lab Inputs
 
 Before a non-dry-run command, prepare all of the following:
 
-- An OpenTofu root that creates or references the target VPC, EKS cluster, and a dedicated sandbox managed node group. Configure a remote, locked state backend for shared use.
+- An OpenTofu root that creates or references the target VPC, EKS cluster, and a dedicated sandbox self-managed Auto Scaling group. Configure a remote, locked state backend for shared use.
 - Bootstrap manifests that install and configure the required sandbox runtime components.
 - A test workload manifest and a readiness command that reflects its actual readiness contract.
-- A sandbox node selector that matches nodes in the dedicated node group. Do not use a shared or production node group.
+- A sandbox node selector that matches nodes in the dedicated Auto Scaling group. Do not use a shared or production node group.
 
 Copy the example configuration, then replace every placeholder with these paths and resource names:
 
@@ -139,7 +143,7 @@ After the OpenTofu root and manifests are available, validate the local tools an
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra apply
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
 
-The cycle removes its test resources and stops the sandbox node group even if its readiness check fails. Destroying the infrastructure remains an explicit operator action:
+The cycle removes its test resources and stops the sandbox Auto Scaling group even if its readiness check fails. Destroying the infrastructure remains an explicit operator action:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra destroy
 
@@ -155,8 +159,8 @@ The cycle removes its test resources and stops the sandbox node group even if it
 
 - Use a dedicated AWS account or an isolated development VPC for the first tests.
 - OpenTofu state must be remote and locked before shared use.
-- The sandbox node group must be dedicated to Xolis and have a maximum size appropriate for the test.
-- Do not use the stop command against a shared or production node group.
+- The sandbox Auto Scaling group must be self-managed, dedicated to Xolis, and have a maximum size appropriate for the test.
+- Do not use the stop command against a shared or production Auto Scaling group.
 - Review OpenTofu plans before apply and destroy.
 - Store test logs and snapshots outside of Git.
 - Test destructive cleanup in an isolated account before using the tool for cost-sensitive environments.
@@ -179,4 +183,4 @@ The first version intentionally defers:
 - [OpenTofu state](https://opentofu.org/docs/language/state/)
 - [Amazon EKS launch templates](https://docs.aws.amazon.com/eks/latest/userguide/launch-templates.html)
 - [Amazon EKS managed and self-managed node groups](https://docs.aws.amazon.com/eks/latest/userguide/ml-node-groups.html)
-- [AWS CLI EKS node group waiter](https://docs.aws.amazon.com/cli/latest/reference/eks/wait/nodegroup-deleted.html)
+- [AWS CLI update-auto-scaling-group](https://docs.aws.amazon.com/cli/latest/reference/autoscaling/update-auto-scaling-group.html)

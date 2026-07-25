@@ -32,7 +32,7 @@ class DryRunTests(unittest.TestCase):
                 {
                     "region": "ap-northeast-1",
                     "cluster_name": "example-cluster",
-                    "sandbox_nodegroup": "sandbox",
+                    "sandbox_autoscaling_group": "sandbox",
                     "sandbox_node_selector": "xolis.io/sandbox=true",
                     "tofu_directory": "missing-infra",
                     "bootstrap_manifests": ["missing-bootstrap.yaml"],
@@ -57,6 +57,9 @@ class DryRunTests(unittest.TestCase):
             self.assertIn("kubectl apply -f", log)
             self.assertIn("missing-bootstrap.yaml", log)
             self.assertIn("missing-test.yaml", log)
+            self.assertIn("kubectl delete -f", log)
+            self.assertIn("aws autoscaling update-auto-scaling-group", log)
+            self.assertIn("--auto-scaling-group-name sandbox", log)
 
     def test_infra_dry_run_does_not_require_opentofu_directory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

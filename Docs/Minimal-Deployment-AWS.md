@@ -142,7 +142,20 @@ Taint the node so only sandbox workloads with a matching toleration can run ther
 
     xolis.io/sandbox=true:NoSchedule
 
-### 5. Install Runtime Components
+### 5. Configure the Disposable Test Capacity
+
+The initial lab does not use Cluster Autoscaler, Karpenter, or workload-driven node scaling. The test tool directly changes the self-managed sandbox Auto Scaling group capacity for each test cycle:
+
+| Test phase | Minimum | Desired | Maximum | Expected state |
+| --- | ---: | ---: | ---: | --- |
+| Idle | 0 | 0 | 1 | No sandbox EC2 instance is running. |
+| Start | 0 | 1 | 1 | One instance joins the cluster and becomes Ready. |
+| Run | 0 | 1 | 1 | Bootstrap and smoke workload run on the labelled sandbox node. |
+| Cleanup | 0 | 0 | 1 | Test resources are removed and the sandbox instance terminates. |
+
+The sandbox ASG must be dedicated to Xolis. The tool identifies its Kubernetes nodes through `xolis.io/kata-ready=true`, so no unrelated workload or node group may use that label. This explicit lifecycle keeps test cost and cleanup behavior predictable.
+
+### 6. Install Runtime Components
 
 Install the Agent Sandbox CRDs and controller on the system node group. Install Xolis node configuration and any required DaemonSets only on the sandbox node group.
 
@@ -164,7 +177,7 @@ Create a Kubernetes RuntimeClass that refers to the Kata containerd handler and 
 
 The handler name is an example. It must exactly match the containerd configuration in the custom AMI.
 
-### 6. Validate the First Sandbox
+### 7. Validate the First Sandbox
 
 Before testing agent execution, verify the host and runtime in this order:
 
