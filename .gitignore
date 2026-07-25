@@ -28,6 +28,7 @@ build/
 *.swp
 *.swo
 *~
+~$*
 *.log
 
 # Editors and operating systems
