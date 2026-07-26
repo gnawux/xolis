@@ -1,5 +1,8 @@
 This is the general architecture design of an sandbox service for agents.
 
+The first service-layer design for the validated AWS Kata environment is
+documented in [Initial Sandbox Service Design](Initial-Sandbox-Service-Design.md).
+
 ## Highlights
 
 There are several featured project or technologies will be used in the system:
