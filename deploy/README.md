@@ -16,9 +16,9 @@ Run the test through the Lab tool after the AMI ID is applied to the sandbox lau
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
 
-The AWS lab manifests pin the three images to private ECR digests produced from
-commit `3603947b8931`. Rebuild and update these references whenever their source
-changes. Then install the upstream controller and apply the rendered stack:
+The AWS lab manifests pin the three images to private ECR digests. Rebuild and
+update a reference whenever its source changes. Then install the upstream
+controller and apply the rendered stack:
 
     deploy/agent-sandbox/install-v0.5.3.sh
     kubectl apply -k deploy
