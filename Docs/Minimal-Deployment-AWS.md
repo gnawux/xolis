@@ -14,8 +14,8 @@ Use the following initial design:
 - One standard EKS managed node group for system workloads.
 - One self-managed EC2 node group dedicated to sandbox workloads.
 - A custom, EKS-compatible Amazon Linux 2023 AMI for the sandbox node group.
-- A supported EC2 instance type with nested virtualization enabled, such as M7i or C7i.
-- Kata Containers with the Rust runtime and Dragonball as a separate containerd runtime handler.
+- A supported EC2 instance type with nested virtualization enabled, such as M8i or C8i.
+- Kata Containers with the Rust runtime and Dragonball behind a dedicated `xolis-kata` containerd runtime handler.
 - containerd with the Nydus snapshotter configured on the sandbox node group.
 
 PVM is not an initial requirement on AWS. AWS supports nested KVM virtualization on selected virtual EC2 instance families. PVM remains an optional fallback or research path for environments without usable hardware virtualization extensions.
@@ -26,7 +26,7 @@ PVM is not an initial requirement on AWS. AWS supports nested KVM virtualization
 
 EKS worker nodes use containerd as their Kubernetes CRI runtime. Kubernetes selects an alternative sandbox runtime through a RuntimeClass. Its handler must correspond to a handler configured in containerd on every eligible node.
 
-Xolis should retain containerd as the node CRI and add a Kata handler, for example, kata-dragonball. It should not attempt to replace Kubernetes CRI with an unrelated runtime.
+Xolis should retain containerd as the node CRI and add the `xolis-kata` Kata handler configured for Dragonball. It should not attempt to replace Kubernetes CRI with an unrelated runtime.
 
 The sandbox AMI must provide all of the following:
 
@@ -48,7 +48,7 @@ Do not introduce a patched PVM kernel in the first AWS proof of concept. First v
 
 ### Nested Virtualization
 
-Kata with an in-node VMM requires hardware virtualization. AWS supports nested virtualization for KVM on selected virtual EC2 instance types, including C7i and M7i families. Enable nested virtualization in the EC2 launch template through CPU options:
+Kata with an in-node VMM requires hardware virtualization. AWS supports nested virtualization for KVM on selected virtual EC2 instance types, including C8i and M8i families. Enable nested virtualization in the EC2 launch template through CPU options:
 
     NestedVirtualization=enabled
 
@@ -71,7 +71,7 @@ The recommended minimum is two worker nodes:
 | Pool | Count | Suggested starting instance | Purpose |
 | --- | ---: | --- | --- |
 | System managed node group | 1 | t3.large | CoreDNS, EKS add-ons, Agent Sandbox controller, observability, and general workloads. |
-| Sandbox self-managed node group | 1 | m7i.xlarge | Kata, Nydus, and one or more isolated sandbox Pods. Enable nested virtualization. |
+| Sandbox self-managed node group | 1 | m8i.xlarge | Kata, Nydus, and one or more isolated sandbox Pods. Enable nested virtualization. |
 
 The node counts above are for a non-production proof of concept. For availability testing, use at least two system nodes across two Availability Zones and at least two sandbox nodes. Size sandbox nodes from measured Kata VM memory overhead and concurrent sandbox demand rather than from the example instance size.
 
@@ -129,7 +129,7 @@ Treat the AMI as an immutable release artifact. Rebuild and roll out a new versi
 Create a self-managed Auto Scaling group with a launch template that:
 
 - Uses the custom sandbox AMI.
-- Uses a supported C7i or M7i instance type.
+- Uses a supported C8i or M8i instance type.
 - Enables nested virtualization through EC2 CPU options.
 - Attaches the EKS node instance profile.
 - Places the node in the sandbox subnet.
@@ -167,7 +167,7 @@ Create a Kubernetes RuntimeClass that refers to the Kata containerd handler and 
     kind: RuntimeClass
     metadata:
       name: xolis-kata
-    handler: kata-dragonball
+    handler: xolis-kata
     scheduling:
       nodeSelector:
         xolis.io/kata-ready: "true"
@@ -177,7 +177,7 @@ Create a Kubernetes RuntimeClass that refers to the Kata containerd handler and 
           value: "true"
           effect: NoSchedule
 
-The handler name is an example. It must exactly match the containerd configuration in the custom AMI.
+The handler name must exactly match the containerd configuration in the custom AMI. The supplied AMI build definition makes `xolis-kata` use a Dragonball Kata configuration.
 
 ### 7. Validate the First Sandbox
 

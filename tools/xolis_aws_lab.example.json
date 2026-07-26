@@ -8,17 +8,16 @@
   "sandbox_max_size": 1,
   "tofu_directory": "../infra/aws/minimal",
   "bootstrap_manifests": [
-    "../deploy/bootstrap/kata-runtime.yaml",
-    "../deploy/bootstrap/agent-sandbox.yaml"
+    "../deploy/bootstrap/xolis-runtime.yaml"
   ],
-  "test_manifest": "../deploy/tests/smoke-sandbox.yaml",
+  "test_manifest": "../deploy/tests/smoke-kata-pod.yaml",
   "ready_command": [
     "kubectl",
     "wait",
+    "--for=condition=Ready",
+    "pod/xolis-kata-smoke",
     "--namespace",
     "xolis-system",
-    "--for=condition=Ready",
-    "sandbox/smoke",
     "--timeout=10m"
   ],
   "artifact_directory": "../artifacts/aws-lab",

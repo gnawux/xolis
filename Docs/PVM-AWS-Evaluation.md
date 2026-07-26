@@ -18,7 +18,7 @@ PVM does not remove the need for a guest kernel, guest root filesystem, virtual 
 
 ### Broader Node Selection
 
-Without PVM, the initial AWS design must select an EC2 family that AWS explicitly supports for nested virtualization. At the time of this assessment, the supported list includes C7i, M7i, R7i, C8i, M8i, R8i, and selected related families.
+Without PVM, the initial AWS design must select an EC2 family that AWS explicitly supports for nested virtualization. At the time of this assessment, the supported list includes C8i, M8i, R8i, and selected related families.
 
 With PVM, Xolis may be able to evaluate x86 node families that do not expose hardware virtualization extensions. This may increase the number of compatible instance families, Regions, Availability Zones, and capacity pools.
 
@@ -38,7 +38,7 @@ PVM preserves a path to Kata-style sandbox isolation in environments where nativ
 
 ## AWS Price Snapshot
 
-The following snapshot compares same-size Linux On-Demand instances. The generation-seven instance supports nested virtualization according to the current AWS support list. The generation-six counterpart is not listed as nested-virtualization capable.
+The following historical snapshot compares same-size Linux On-Demand instances. It is retained only to show the former generation-six versus generation-seven price relationship; it must not be used to select the current nested-virtualization instance family.
 
 Prices are in USD per hour and exclude EBS, data transfer, NAT gateways, load balancers, CloudWatch, EKS control-plane charges, Savings Plans, Reserved Instances, and Spot discounts. Monthly values use 730 hours.
 
@@ -52,7 +52,7 @@ For comparable On-Demand instances, the native nested-virtualization premium is 
 
 ## Recommendation
 
-Use native AWS nested virtualization as the default Xolis path. Begin with supported M7i or C7i nodes, a standard Amazon Linux 2023 kernel, and Kata Containers.
+Use native AWS nested virtualization as the default Xolis path. Begin with supported M8i or C8i nodes, a standard Amazon Linux 2023 kernel, and Kata Containers.
 
 Keep PVM as an experimental capability with a separate AMI and node group. Consider activating it only when one or more of the following conditions are true:
 

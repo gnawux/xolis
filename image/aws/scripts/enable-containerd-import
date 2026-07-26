@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_path="${XOLIS_CONTAINERD_CONFIG_PATH:-/etc/containerd/config.toml}"
+fragment_path="/etc/containerd/conf.d/xolis-kata.toml"
+fragment_reference='"/etc/containerd/conf.d/xolis-kata.toml"'
+
+if [[ ! -f "${config_path}" ]]; then
+  echo "containerd configuration was not found at ${config_path}" >&2
+  exit 1
+fi
+
+if grep -Fq "${fragment_reference}" "${config_path}"; then
+  exit 0
+fi
+
+temporary_path="$(mktemp "${config_path}.XXXXXX")"
+trap 'rm -f "${temporary_path}"' EXIT
+
+if grep -qE '^imports[[:space:]]*=[[:space:]]*\[[[:space:]]*\][[:space:]]*$' "${config_path}"; then
+  sed -E "s|^imports[[:space:]]*=[[:space:]]*\[[[:space:]]*\][[:space:]]*$|imports = [${fragment_reference}]|" "${config_path}" >"${temporary_path}"
+elif grep -qE '^imports[[:space:]]*=' "${config_path}"; then
+  sed -E "s|^imports[[:space:]]*=[[:space:]]*\[([^]]*)\]|imports = [\1, ${fragment_reference}]|" "${config_path}" >"${temporary_path}"
+else
+  {
+    printf 'imports = [%s]\n\n' "${fragment_reference}"
+    cat "${config_path}"
+  } >"${temporary_path}"
+fi
+
+install -m 0644 "${temporary_path}" "${config_path}"

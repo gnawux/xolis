@@ -213,6 +213,10 @@ resource "aws_launch_template" "sandbox" {
     http_put_response_hop_limit = 2
   }
 
+  cpu_options {
+    nested_virtualization = "enabled"
+  }
+
   user_data = base64encode(<<-EOF
     MIME-Version: 1.0
     Content-Type: multipart/mixed; boundary="NODECONFIG"

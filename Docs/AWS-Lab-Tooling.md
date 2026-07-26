@@ -82,7 +82,7 @@ The readiness command is intentionally configurable because Xolis has not yet fi
 
 ## Quick Start
 
-This repository supplies an initial OpenTofu root at `infra/aws/minimal` for the VPC, EKS control plane, system managed node group, and self-managed sandbox Auto Scaling group. It does not yet supply the custom Kata and Nydus AMI, Agent Sandbox installation, or smoke-test manifests. Provide those runtime inputs before attempting a real sandbox deployment. A dry run can be used before they exist.
+This repository supplies an initial OpenTofu root at `infra/aws/minimal` for the VPC, EKS control plane, system managed node group, and self-managed sandbox Auto Scaling group. It also supplies a custom AMI build definition at `image/aws` and a basic Kata RuntimeClass smoke manifest at `deploy`. The first real sandbox deployment still requires a custom AMI built from pinned Kata and Nydus artifacts. Agent Sandbox installation is deliberately deferred until the Kata smoke path is repeatable. A dry run can be used before those inputs exist.
 
 ### 1. Install Local Tools
 
@@ -91,6 +91,7 @@ Install the following tools and make them available on `PATH`:
 - Python 3.11 or later.
 - AWS CLI version 2.
 - OpenTofu.
+- Packer when building the custom Kata and Nydus sandbox AMI.
 - `kubectl` compatible with the target EKS cluster version.
 - Helm when the bootstrap procedure uses Helm.
 
@@ -99,6 +100,7 @@ Confirm the local installation:
     python3 --version
     aws --version
     tofu version
+    packer version
     kubectl version --client
     helm version
 
@@ -122,6 +124,7 @@ The identity used by OpenTofu needs permissions appropriate to the supplied infr
 Before a non-dry-run command, prepare all of the following:
 
 - The supplied `infra/aws/minimal` OpenTofu root configured with the IAM Identity Center administrator role ARN. Configure a remote, locked state backend before shared use.
+- A Packer build configuration and pinned Kata and Nydus artifacts for the custom sandbox AMI. The supplied build definition is at `image/aws`.
 - Bootstrap manifests that install and configure the required sandbox runtime components.
 - A test workload manifest and a readiness command that reflects its actual readiness contract.
 - A sandbox node selector that matches nodes in the dedicated Auto Scaling group. Do not use a shared or production node group.

@@ -1,6 +1,6 @@
 # Xolis AWS Lab Tool
 
-The AWS lab tool orchestrates repeatable minimal-deployment checks. It requires Python 3.11, OpenTofu, AWS CLI, and kubectl.
+The AWS lab tool orchestrates repeatable minimal-deployment checks. It requires Python 3.11, OpenTofu, AWS CLI, and kubectl. Packer is additionally required when building the custom Kata and Nydus sandbox AMI.
 
 Copy the example configuration and replace all placeholder resource names:
 

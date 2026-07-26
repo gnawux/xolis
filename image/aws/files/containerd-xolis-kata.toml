@@ -1,0 +1,5 @@
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata]
+  runtime_type = "io.containerd.kata.v2"
+
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata.options]
+    ConfigPath = "/etc/kata-containers/configuration-xolis-dragonball.toml"

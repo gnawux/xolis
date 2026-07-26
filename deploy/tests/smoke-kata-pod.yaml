@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: xolis-kata-smoke
+  namespace: xolis-system
+  labels:
+    app.kubernetes.io/name: xolis-kata-smoke
+    app.kubernetes.io/part-of: xolis
+spec:
+  runtimeClassName: xolis-kata
+  restartPolicy: Never
+  tolerations:
+    - key: xolis.io/sandbox
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  containers:
+    - name: smoke
+      image: public.ecr.aws/docker/library/busybox:1.37.0
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          echo "Xolis Kata smoke test is running"
+          sleep 30

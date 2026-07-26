@@ -36,7 +36,7 @@ variable "system_instance_type" {
 variable "sandbox_instance_type" {
   description = "Nested-virtualization-capable instance type for the self-managed sandbox ASG."
   type        = string
-  default     = "m7i.xlarge"
+  default     = "m8i.xlarge"
 }
 
 variable "sandbox_ami_id" {

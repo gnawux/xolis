@@ -1,0 +1,11 @@
+region        = "ap-northeast-1"
+source_ami_id = "ami-replace-with-eks-optimized-al2023-ami"
+subnet_id     = "subnet-replace-with-public-build-subnet"
+
+kata_version        = "replace-with-pinned-version"
+kata_archive_url    = "https://example.invalid/kata-static.tar.xz"
+kata_archive_sha256 = "replace-with-verified-sha256"
+
+nydus_version        = "replace-with-pinned-version"
+nydus_archive_url    = "https://example.invalid/nydus-static.tar.xz"
+nydus_archive_sha256 = "replace-with-verified-sha256"

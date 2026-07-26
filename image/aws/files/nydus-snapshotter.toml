@@ -1,0 +1,8 @@
+[daemon]
+  threads = 4
+
+[snapshot]
+  root = "/var/lib/containerd/io.containerd.snapshotter.v1.nydus"
+
+[remote]
+  type = "registry"
