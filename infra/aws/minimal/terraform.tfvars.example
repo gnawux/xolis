@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and replace the administrator role ARN.
+# Do not commit terraform.tfvars.
+
+region              = "ap-northeast-1"
+name                = "xolis-lab"
+kubernetes_version  = "1.32"
+admin_principal_arn = "arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/ap-northeast-1/AWSReservedSSO_AdministratorAccess_example"
+owner               = "your-name"
+
+# Leave null for the initial EKS-compatible AL2023 AMI. Replace it with the
+# versioned Kata/Nydus sandbox AMI once the image build is available.
+sandbox_ami_id = null

@@ -91,6 +91,8 @@ For a low-cost development experiment, worker nodes can use public subnets with 
 
 ## Deployment Sequence
 
+The initial OpenTofu implementation is available at `infra/aws/minimal`. It creates the public-subnet lab topology below with the sandbox ASG at zero capacity. It is deliberately a development-only root; provide a custom sandbox AMI and runtime manifests before attempting Kata workloads.
+
 ### 1. Create the EKS Control Plane
 
 Create a standard EKS cluster with IPv4 networking and the default EKS add-ons:

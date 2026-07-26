@@ -82,7 +82,7 @@ The readiness command is intentionally configurable because Xolis has not yet fi
 
 ## Quick Start
 
-This tool orchestrates an existing OpenTofu root and Kubernetes manifests; it does not yet supply the EKS OpenTofu modules or the Kata, Nydus, Agent Sandbox, and smoke-test manifests. Provide those inputs before attempting a real deployment. A dry run can be used before they exist.
+This repository supplies an initial OpenTofu root at `infra/aws/minimal` for the VPC, EKS control plane, system managed node group, and self-managed sandbox Auto Scaling group. It does not yet supply the custom Kata and Nydus AMI, Agent Sandbox installation, or smoke-test manifests. Provide those runtime inputs before attempting a real sandbox deployment. A dry run can be used before they exist.
 
 ### 1. Install Local Tools
 
@@ -121,7 +121,7 @@ The identity used by OpenTofu needs permissions appropriate to the supplied infr
 
 Before a non-dry-run command, prepare all of the following:
 
-- An OpenTofu root that creates or references the target VPC, EKS cluster, and a dedicated sandbox self-managed Auto Scaling group. Configure a remote, locked state backend for shared use.
+- The supplied `infra/aws/minimal` OpenTofu root configured with the IAM Identity Center administrator role ARN. Configure a remote, locked state backend before shared use.
 - Bootstrap manifests that install and configure the required sandbox runtime components.
 - A test workload manifest and a readiness command that reflects its actual readiness contract.
 - A sandbox node selector that matches nodes in the dedicated Auto Scaling group. Do not use a shared or production node group.

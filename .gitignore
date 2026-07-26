@@ -9,6 +9,14 @@ __pycache__/
 .Python
 .venv/
 venv/
+infra/**/terraform.tfvars
+infra/**/backend.hcl
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/tfplan
+artifacts/
+tmp/
 env/
 ENV/
 .pytest_cache/

@@ -1,0 +1,7 @@
+# Copy to backend.hcl and replace the bucket name before tofu init.
+# Create the bucket with versioning and public access blocks enabled.
+bucket       = "replace-with-your-xolis-state-bucket"
+key          = "xolis/lab/minimal.tfstate"
+region       = "ap-northeast-1"
+use_lockfile = true
+encrypt      = true

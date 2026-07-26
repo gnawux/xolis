@@ -16,7 +16,7 @@ The high-level architecture is described in [Docs/General-Arch.md](Docs/General-
 
 ## Status
 
-The project is in its architecture and design phase. Runtime components, deployment manifests, APIs, and operational documentation have not been implemented yet.
+The project has an initial AWS lab infrastructure root and a test-cycle tool. The runtime AMI, Kubernetes manifests, Agent Sandbox integration, and public APIs have not been implemented yet. See [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for the current lab boundary and prerequisites.
 
 ## Intended Languages
 
