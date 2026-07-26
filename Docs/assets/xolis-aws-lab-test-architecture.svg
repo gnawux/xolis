@@ -41,7 +41,7 @@
 
   <rect x="775" y="345" width="610" height="210" class="box" fill="#ffffff" stroke="#e5b450"/>
   <text x="815" y="390" class="heading">One EC2 sandbox node during a test</text>
-  <text x="815" y="425" class="body">containerd · Kata + Dragonball · Nydus</text>
+  <text x="815" y="425" class="body">containerd · Kata + Dragonball · optional Nydus</text>
   <text x="815" y="457" class="body">xolis.io/kata-ready=true · dedicated taint</text>
   <text x="815" y="495" class="small">Runs the isolated smoke sandbox workload</text>
 

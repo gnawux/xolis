@@ -78,11 +78,19 @@ All mutating commands support a dry-run flag. Dry-run validates the JSON configu
 
 Use the example configuration at tools/xolis_aws_lab.example.json as a starting point. It defaults to the Tokyo Region (`ap-northeast-1`) and identifies the cluster, Region, sandbox Auto Scaling group, node selector, OpenTofu directory, bootstrap manifests, workload manifest, readiness command, and artifact directory.
 
-The readiness command is intentionally configurable because Xolis has not yet fixed its Agent Sandbox manifest or readiness contract.
+The readiness command remains configurable so the disposable cycle can validate
+different workload manifests. The checked-in example uses the minimal Kata Pod;
+the full Agent Sandbox service has a separate self-cleaning acceptance test.
 
 ## Quick Start
 
-This repository supplies an initial OpenTofu root at `infra/aws/minimal` for the VPC, EKS control plane, system managed node group, and self-managed sandbox Auto Scaling group. It also supplies a custom AMI build definition at `image/aws` and a basic Kata RuntimeClass smoke manifest at `deploy`. The first real sandbox deployment still requires a custom AMI built from pinned Kata and Nydus artifacts. Agent Sandbox installation is deliberately deferred until the Kata smoke path is repeatable. A dry run can be used before those inputs exist.
+This repository supplies the complete validated lab path: an OpenTofu root at
+`infra/aws/minimal`, a custom Kata AMI build at `image/aws`, a minimal
+RuntimeClass smoke manifest, Agent Sandbox v0.5.3 manifests, the Xolis service,
+and an end-to-end acceptance test. The validated AMI uses Kata 4.0.0
+runtime-rs with Dragonball and ordinary OCI images. Nydus is optional and is
+not required to run the current tests. A dry run can preview the disposable
+cycle before AWS or local deployment inputs are available.
 
 ### 1. Install Local Tools
 
@@ -91,7 +99,7 @@ Install the following tools and make them available on `PATH`:
 - Python 3.11 or later.
 - AWS CLI version 2.
 - OpenTofu.
-- Packer when building the custom Kata and Nydus sandbox AMI.
+- Packer when building the custom Kata sandbox AMI.
 - AWS Session Manager Plugin when Packer builds the AMI through Session Manager.
 - `kubectl` compatible with the target EKS cluster version.
 - Helm when the bootstrap procedure uses Helm.
@@ -126,9 +134,12 @@ The identity used by OpenTofu needs permissions appropriate to the supplied infr
 Before a non-dry-run command, prepare all of the following:
 
 - The supplied `infra/aws/minimal` OpenTofu root configured with the IAM Identity Center administrator role ARN. Configure a remote, locked state backend before shared use.
-- A Packer build configuration and pinned Kata artifacts for the custom sandbox AMI. Nydus artifacts are optional for the initial Kata smoke test. The supplied build definition is at `image/aws`.
-- Bootstrap manifests that install and configure the required sandbox runtime components.
-- A test workload manifest and a readiness command that reflects its actual readiness contract.
+- A Packer build configuration and pinned Kata artifacts for the custom sandbox
+  AMI. Nydus artifacts are optional. The supplied build definition is at
+  `image/aws`.
+- The checked-in runtime, Agent Sandbox, and Xolis manifests under `deploy`.
+- The checked-in minimal workload and readiness command, or replacements for a
+  different disposable-cycle test.
 - A sandbox node selector that matches nodes in the dedicated Auto Scaling group. Do not use a shared or production node group.
 
 Copy the example configuration, then replace every placeholder with these paths and resource names:
@@ -141,14 +152,30 @@ Preview the full command sequence first. Dry-run does not contact AWS or require
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json --dry-run cycle run
 
-After the OpenTofu root and manifests are available, validate the local tools and AWS identity, review the OpenTofu plan, and explicitly approve only the intended changes:
+Validate the local tools and AWS identity, review the OpenTofu plan, and
+explicitly approve only the intended changes:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json doctor
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra plan
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra apply
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
 
-The cycle removes its test resources and stops the sandbox Auto Scaling group even if its readiness check fails. Destroying the infrastructure remains an explicit operator action:
+`cycle run` is the minimal RuntimeClass and Kata test. It removes its Pod and
+stops the sandbox Auto Scaling group even if readiness fails.
+
+To validate the complete service, start the sandbox node, install the pinned
+Agent Sandbox release, apply the Xolis stack, and run the self-cleaning service
+test:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json node start
+    deploy/agent-sandbox/install-v0.5.3.sh
+    kubectl apply -k deploy
+    python3 deploy/tests/smoke_service.py
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json node stop
+
+The service test deletes claims it creates when an assertion fails. The node
+stop remains explicit, so always run it after the service test. Destroying the
+infrastructure is also an explicit operator action:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra destroy
 
@@ -172,11 +199,12 @@ The cycle removes its test resources and stops the sandbox Auto Scaling group ev
 
 ## Deferred Work
 
-The first version intentionally defers:
+The current implementation intentionally defers:
 
-- OpenTofu modules for the full EKS environment.
-- AMI image build automation.
-- Installation of Kata, Nydus, and Agent Sandbox from version-pinned packages.
+- Production-oriented reusable OpenTofu modules and private-network topology.
+- A fully automated release pipeline for AMIs and service images.
+- Nydus image conversion, lazy loading, Dragonfly distribution, and performance
+  benchmarks.
 - Agent Sandbox API-level snapshots.
 - Concurrent test scheduling and distributed test reporting.
 - CloudWatch log retrieval and cost reporting.

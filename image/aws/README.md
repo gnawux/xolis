@@ -29,7 +29,10 @@ Record the AMI ID in `infra/aws/minimal/terraform.tfvars` as `sandbox_ami_id`, t
 
 ## Kata Version Policy
 
-The example pins Kata Containers 4.0.0, the current stable release, including its immutable release-asset digest and source commit. This is the baseline for the first AMI and smoke test because it makes results reproducible. Do not replace it with an unversioned `main` build in this file.
+The example pins Kata Containers 4.0.0 as the validated baseline, including its
+immutable release-asset digest and source commit. This makes the AMI and smoke
+results reproducible. Do not replace it with an unversioned `main` build in this
+file.
 
 The runtime-rs build uses the GNU Rust target (`LIBC=gnu`). Kata's runtime-rs documentation lists the musl target as an optional fully-static build, while Amazon Linux 2023 does not provide the `musl-gcc` package needed by Kata's default musl build. This does not change the built-in Dragonball VMM.
 

@@ -11,7 +11,10 @@ This OpenTofu root creates the persistent infrastructure for the first Xolis AWS
 - A no-ingress security group and least-privilege instance profile for
   temporary, SSM-managed image build instances.
 
-The public-subnet layout intentionally avoids a NAT gateway during early experiments. It is not a production network design. The sandbox Auto Scaling group uses the EKS-optimized AL2023 AMI until a versioned custom Kata and Nydus AMI is supplied through `sandbox_ami_id`.
+The public-subnet layout intentionally avoids a NAT gateway during early
+experiments. It is not a production network design. Set `sandbox_ami_id` to the
+versioned custom Kata AMI built from `image/aws`. The validated baseline does not
+require Nydus.
 
 ## Prepare Configuration
 
@@ -47,7 +50,9 @@ After apply, update the Lab tool configuration with the output values:
 
     tofu output
 
-The sandbox ASG remains at zero. Use `tools/xolis_aws_lab.py ... cycle run` only after the runtime bootstrap and smoke-test manifests exist.
+The sandbox ASG remains at zero after apply. The checked-in configuration and
+manifests support either the minimal `tools/xolis_aws_lab.py ... cycle run` or the
+full service acceptance workflow documented in `deploy/README.md`.
 
 The image builder instance is not persistent infrastructure. Run
 `tools/xolis_image_builder.py` when images need to be built; the tool launches

@@ -16,7 +16,8 @@ Use the following initial design:
 - A custom, EKS-compatible Amazon Linux 2023 AMI for the sandbox node group.
 - A supported EC2 instance type with nested virtualization enabled, such as M8i or C8i.
 - Kata Containers with the Rust runtime and Dragonball behind a dedicated `xolis-kata` containerd runtime handler.
-- containerd with the Nydus snapshotter configured on the sandbox node group.
+- containerd for OCI images, with the Nydus snapshotter as an optional
+  lazy-loading optimization.
 
 PVM is not an initial requirement on AWS. AWS supports nested KVM virtualization on selected virtual EC2 instance families. PVM remains an optional fallback or research path for environments without usable hardware virtualization extensions.
 
@@ -42,7 +43,11 @@ Managed node groups support custom AMIs through a launch template, but a custom 
 
 Amazon Linux 2023 is the default operating system family for new EKS managed node groups on supported EKS versions and uses cgroup v2. It is a suitable base for a custom sandbox AMI.
 
-The initial AMI should start from EKS-optimized AL2023 build inputs and add Kata Containers, Nydus, and Xolis node configuration. It must preserve the EKS node bootstrap process. For AL2023, node initialization is performed by nodeadm; do not invoke nodeadm init a second time in the AMI build or EC2 user data.
+The initial AMI starts from EKS-optimized AL2023 build inputs and adds Kata
+Containers and Xolis node configuration. It can add Nydus when lazy loading is
+being evaluated. It must preserve the EKS node bootstrap process. For AL2023,
+node initialization is performed by nodeadm; do not invoke nodeadm init a second
+time in the AMI build or EC2 user data.
 
 Do not introduce a patched PVM kernel in the first AWS proof of concept. First verify the standard AL2023 kernel with KVM exposed by nested virtualization. Build a separate experimental AMI only if this validation fails or if PVM is explicitly being evaluated.
 
@@ -71,7 +76,7 @@ The recommended minimum is two worker nodes:
 | Pool | Count | Suggested starting instance | Purpose |
 | --- | ---: | --- | --- |
 | System managed node group | 1 | t3.large | CoreDNS, EKS add-ons, Agent Sandbox controller, observability, and general workloads. |
-| Sandbox self-managed node group | 1 | m8i.xlarge | Kata, Nydus, and one or more isolated sandbox Pods. Enable nested virtualization. |
+| Sandbox self-managed node group | 1 | m8i.xlarge | Kata and one or more isolated sandbox Pods, with optional Nydus. Enable nested virtualization. |
 
 The node counts above are for a non-production proof of concept. For availability testing, use at least two system nodes across two Availability Zones and at least two sandbox nodes. Size sandbox nodes from measured Kata VM memory overhead and concurrent sandbox demand rather than from the example instance size.
 
@@ -80,18 +85,23 @@ The node counts above are for a non-production proof of concept. For availabilit
 Before creating the cluster, prepare the following:
 
 1. An AWS account with billing enabled and a target Region where EKS and the selected nested-virtualization instance type are available.
-2. An IAM principal permitted to create or manage EKS, EC2, VPC, IAM, CloudFormation, ECR, and CloudWatch resources.
+2. An IAM principal permitted to create or manage EKS, EC2, VPC, IAM, ECR, and CloudWatch resources.
 3. A distinct EKS cluster IAM role and EC2 node IAM role. The node role needs at least EKS worker-node and ECR pull permissions.
 4. A VPC with non-overlapping IPv4 ranges, at least two subnets in separate Availability Zones for the EKS control plane, and DNS support enabled.
 5. Network egress from worker nodes to the EKS API, ECR, S3, and required public registries. For private subnets, provide a NAT gateway or the required VPC endpoints.
-6. Local tooling: AWS CLI, eksctl, kubectl, helm, Packer or an equivalent AMI build tool, and a container image build tool.
+6. Local tooling: Python 3.11 or later, AWS CLI, OpenTofu, kubectl, Packer,
+   the AWS Session Manager Plugin, and a container image build tool. Helm is
+   required only for an installation path that uses Helm.
 7. An image registry for Xolis runtime images. Amazon ECR is the default AWS choice.
 
 For a low-cost development experiment, worker nodes can use public subnets with tightly restricted security groups. A persistent environment should use private worker subnets, private EKS endpoint access where feasible, and VPC endpoints instead of general Internet egress.
 
 ## Deployment Sequence
 
-The initial OpenTofu implementation is available at `infra/aws/minimal`. It creates the public-subnet lab topology below with the sandbox ASG at zero capacity. It is deliberately a development-only root; provide a custom sandbox AMI and runtime manifests before attempting Kata workloads.
+The OpenTofu implementation at `infra/aws/minimal` creates the public-subnet lab
+topology below with the sandbox ASG at zero capacity. It is deliberately a
+development-only root. The custom AMI build is under `image/aws`, and the
+validated runtime and service manifests are under `deploy`.
 
 ### 1. Create the EKS Control Plane
 
@@ -117,10 +127,12 @@ Build and publish a versioned AMI from the EKS-compatible AL2023 base. The build
 
 1. Install a pinned Kata Containers release and its guest kernel and root filesystem.
 2. Install and configure the Nydus snapshotter when lazy loading is part of the test.
-3. Configure containerd with the Nydus proxy plugin and the Kata runtime handler.
+3. Configure containerd with the Kata runtime handler and, when enabled, the
+   Nydus proxy plugin.
 4. Enable and validate required system services.
 5. Add node bootstrap configuration without re-running nodeadm init.
-6. Record the AMI, kernel, containerd, Kata, and Nydus versions as image metadata.
+6. Record the AMI, kernel, containerd, Kata, and any enabled Nydus version as
+   image metadata.
 
 Treat the AMI as an immutable release artifact. Rebuild and roll out a new version for operating-system or runtime security updates.
 
@@ -185,12 +197,14 @@ Before testing agent execution, verify the host and runtime in this order:
 
 1. The sandbox node is Ready and has the expected labels and taint.
 2. The /dev/kvm device exists on the sandbox node.
-3. containerd reports the Kata runtime handler and Nydus snapshotter as healthy.
+3. containerd reports the Kata runtime handler and any enabled Nydus snapshotter
+   as healthy.
 4. A minimal Pod with runtimeClassName set to xolis-kata starts successfully.
 5. The Pod runs inside a Kata VM, as shown by Kata runtime logs and the guest environment.
 6. A Nydus image is pulled and read on demand, if Nydus is enabled.
 7. An Agent Sandbox resource creates, reaches readiness, executes a harmless command, and is deleted.
-8. A network policy denies unapproved egress from the sandbox namespace.
+8. The Amazon VPC CNI network-policy controller and node agent enforce a policy
+   that denies unapproved egress from the sandbox namespace.
 
 Do not expose a general code-execution endpoint until these checks pass.
 
@@ -218,7 +232,9 @@ The first deployment does not require:
 - High availability for sandbox capacity.
 - A production-grade image cache or peer-to-peer Dragonfly deployment.
 
-These capabilities should be added only after the basic Kata and Nydus execution path is reproducible.
+These capabilities should be added only after the basic Kata execution path is
+reproducible. Nydus and Dragonfly performance work is also a follow-up to the
+validated ordinary-OCI baseline.
 
 ## References
 

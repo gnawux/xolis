@@ -2,15 +2,15 @@
 
 ## Purpose
 
-This document defines the first service layer to build on the validated Xolis
-AWS lab. The current cluster already proves that an EKS self-managed node can
-run a Kubernetes Pod through `RuntimeClass/xolis-kata` with Kata Containers
-4.0.0, runtime-rs, and Dragonball.
+This document defines the first service layer built on the validated Xolis AWS
+lab. The cluster proves that an EKS self-managed node can run a Kubernetes Pod
+through `RuntimeClass/xolis-kata` with Kata Containers 4.0.0, runtime-rs, and
+Dragonball.
 
-The next milestone is a small, usable service that creates an isolated Python
-workspace, waits for it to become ready, runs commands, transfers files, and
-removes the workspace at an enforced deadline. It is an architecture and API
-validation milestone, not a production multi-tenant service.
+The implemented milestone is a small, usable service that creates an isolated
+Python workspace, waits for it to become ready, runs commands, transfers files,
+and removes the workspace at an enforced deadline. It is an architecture and
+API validation milestone, not a production multi-tenant service.
 
 ## Design Decisions
 
@@ -295,10 +295,10 @@ authorization, network policy, resource quotas, or lifecycle cleanup.
   readiness timeout and is then cleaned up. The API does not scale EC2 capacity
   in this milestone.
 
-## Validation Plan
+## Validation Status
 
-The implementation is ready for the next milestone only when an automated test
-proves all of the following:
+The automated test at `deploy/tests/smoke_service.py` has validated the following
+behavior in the AWS lab:
 
 1. Install Agent Sandbox v0.5.3 and the internal router on the system node.
 2. Start the dedicated sandbox ASG and wait for a labelled Ready node.
@@ -327,16 +327,17 @@ proves all of the following:
 - PVM, Confidential Containers, GPUs, and multi-region operation.
 - A separate database, billing ledger, scheduler, or event bus.
 
-## Immediate Implementation Order
+## Implemented First Milestone
 
-1. Add private ECR repositories and immutable image policies.
-2. Mirror the Agent Sandbox v0.5.3 controller and build its Go router.
-3. Build and scan `xolis-runtime-python` with bounded command and file APIs.
-4. Install the v0.5.3 CRDs/controllers and deploy the internal router.
-5. Add `python-basic-v1` as a `SandboxTemplate` plus a zero-replica
-   `SandboxWarmPool`.
-6. Implement the minimal async Rust `xolis-api` and namespace-scoped RBAC.
-7. Add the end-to-end lifecycle and security test described above.
+The first milestone delivered:
+
+1. Private ECR repositories with immutable tags and scan-on-push.
+2. A pinned Agent Sandbox v0.5.3 controller and Go router image.
+3. A bounded `xolis-runtime-python` command and file API.
+4. Version-pinned CRDs, controller installation, and the internal router.
+5. The `python-basic-v1` `SandboxTemplate` and zero-replica `SandboxWarmPool`.
+6. The asynchronous Rust `xolis-api` with namespace-scoped RBAC.
+7. End-to-end lifecycle, isolation, policy, and cleanup validation.
 
 ## References
 

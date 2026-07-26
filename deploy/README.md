@@ -12,7 +12,8 @@ The manifests provide the initial Xolis sandbox service stack:
 
 The RuntimeClass selects only nodes with `xolis.io/kata-ready=true` and tolerates the dedicated sandbox taint. The self-managed sandbox ASG must use a custom AMI that provides the `xolis-kata` containerd handler before the test can run.
 
-Run the test through the Lab tool after the AMI ID is applied to the sandbox launch template:
+Run the minimal RuntimeClass test through the Lab tool after the AMI ID is
+applied to the sandbox launch template:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json cycle run
 
@@ -27,7 +28,8 @@ Validate all local and pinned upstream manifests without a cluster:
 
     deploy/tests/validate-manifests.sh
 
-After the stack is deployed and the sandbox ASG has one Ready node, run the
+This disposable cycle does not install or validate the complete service. After
+the stack is deployed and the sandbox ASG has one Ready node, run the
 self-cleaning service acceptance test:
 
     python3 deploy/tests/smoke_service.py

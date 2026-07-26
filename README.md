@@ -8,7 +8,8 @@ Xolis combines the following components:
 
 - Kubernetes Agent Sandbox for declarative sandbox lifecycle management.
 - Kata Containers with the Rust runtime and Dragonball VMM for VM-level workload isolation.
-- containerd and the Nydus snapshotter for OCI image management and lazy image loading.
+- containerd for OCI image management, with the Nydus snapshotter as an optional
+  lazy-loading optimization.
 - Optional PVM support for selected nested-virtualization environments.
 - Optional Confidential Containers support for confidential-computing workloads.
 
@@ -18,15 +19,19 @@ The initial service decomposition, API boundary, and image plan are described in
 
 ## Status
 
-The project has an AWS lab infrastructure root, a test-cycle tool, a custom
-Kata 4.0.0 runtime AMI, and a validated Kubernetes RuntimeClass smoke path.
-Agent Sandbox integration and the Xolis service API are the next implementation
-milestone. See [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for the current
-lab boundary and prerequisites.
+The current AWS lab includes OpenTofu infrastructure, a disposable test-cycle
+tool, a custom Kata 4.0.0 runtime-rs and Dragonball AMI, Agent Sandbox v0.5.3,
+and the Rust Xolis API with a bounded Python runtime. The automated service
+acceptance test validates Kata placement, command and file operations, tenant
+isolation, idempotency, request limits, denied public egress, explicit deletion,
+and TTL cleanup. Nydus remains an optional performance follow-up. See
+[Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for prerequisites and test
+workflows.
 
 ## Intended Languages
 
-Xolis may use Rust, Python, and Shell as implementation work begins.
+Xolis uses Rust for the service API, Python for the initial sandbox runtime and
+lab automation, and Shell for focused build and deployment tasks.
 
 ## License
 
