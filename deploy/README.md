@@ -27,6 +27,17 @@ Validate all local and pinned upstream manifests without a cluster:
 
     deploy/tests/validate-manifests.sh
 
+After the stack is deployed and the sandbox ASG has one Ready node, run the
+self-cleaning service acceptance test:
+
+    python3 deploy/tests/smoke_service.py
+
+The test opens a temporary local port-forward to `xolis-api`, creates a sandbox,
+verifies Kata placement, commands, files, tenant isolation, idempotency, network
+egress policy, explicit deletion, and absolute TTL cleanup. It deletes claims it
+created even when an assertion fails. Use `--skip-ttl` only for a faster
+development check; the full acceptance run includes the TTL backstop.
+
 The smoke Pod proves the basic RuntimeClass and Kata scheduling path. It does
 not validate Nydus image lazy loading. The full service validation creates a
 claim through `xolis-api`, executes Python, transfers files, checks policy
