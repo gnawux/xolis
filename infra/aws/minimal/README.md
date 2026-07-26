@@ -28,7 +28,7 @@ To use S3 state locking, create a dedicated state bucket through your account bo
     cp backend.hcl.example backend.hcl
     tofu init -backend-config=backend.hcl
 
-`backend.hcl` contains no AWS credentials and is ignored because bucket names and state paths are account-specific.
+`backend.hcl` contains no AWS credentials and is ignored because bucket names and state paths are account-specific. This root uses S3 lockfiles (`use_lockfile = true`); it does not require DynamoDB locking.
 
 ## Validate and Apply
 
