@@ -39,6 +39,8 @@ pub struct Sandbox {
     pub tenant_id: String,
     #[serde(skip)]
     pub runtime_id: Option<String>,
+    #[serde(skip)]
+    pub runtime_pod_ip: Option<String>,
     pub profile: String,
     pub state: SandboxState,
     pub created_at: DateTime<Utc>,

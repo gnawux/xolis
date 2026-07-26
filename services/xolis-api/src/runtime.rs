@@ -11,6 +11,7 @@ use crate::domain::{ExecuteCommandRequest, ExecuteCommandResponse, FileEntry, Sa
 const SANDBOX_ID_HEADER: &str = "x-sandbox-id";
 const SANDBOX_NAMESPACE_HEADER: &str = "x-sandbox-namespace";
 const SANDBOX_PORT_HEADER: &str = "x-sandbox-port";
+const SANDBOX_POD_IP_HEADER: &str = "x-sandbox-pod-ip";
 const PATH_VALUE_ENCODE_SET: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
@@ -90,12 +91,16 @@ impl RouterRuntimeClient {
             .runtime_id
             .as_deref()
             .ok_or(RuntimeError::NotReady)?;
-        Ok(self
+        let request = self
             .client
             .request(method, format!("{}/{endpoint}", self.base_url))
             .header(SANDBOX_ID_HEADER, runtime_id)
             .header(SANDBOX_NAMESPACE_HEADER, &self.namespace)
-            .header(SANDBOX_PORT_HEADER, self.port))
+            .header(SANDBOX_PORT_HEADER, self.port);
+        Ok(match sandbox.runtime_pod_ip.as_deref() {
+            Some(pod_ip) => request.header(SANDBOX_POD_IP_HEADER, pod_ip),
+            None => request,
+        })
     }
 
     async fn response(request: reqwest::RequestBuilder) -> Result<reqwest::Response, RuntimeError> {
@@ -202,6 +207,7 @@ mod tests {
             id: "xolis-public-id".to_owned(),
             tenant_id: "tenant-a".to_owned(),
             runtime_id: Some("xolis-runtime-id".to_owned()),
+            runtime_pod_ip: Some("10.42.1.230".to_owned()),
             profile: "python-basic-v1".to_owned(),
             state: SandboxState::Running,
             created_at: Utc::now(),
@@ -227,6 +233,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/execute"))
             .and(header("x-sandbox-id", "xolis-runtime-id"))
+            .and(header("x-sandbox-pod-ip", "10.42.1.230"))
             .and(header("x-sandbox-namespace", "xolis-sandboxes"))
             .and(header("x-sandbox-port", "8888"))
             .and(body_json(

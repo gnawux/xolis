@@ -206,12 +206,20 @@ fn claim_to_sandbox(claim: &DynamicObject, tenant_id: &str) -> Result<Sandbox, S
         .pointer("/status/sandbox/name")
         .and_then(Value::as_str)
         .map(str::to_owned);
+    let runtime_pod_ip = claim
+        .data
+        .pointer("/status/sandbox/podIPs")
+        .and_then(Value::as_array)
+        .and_then(|pod_ips| pod_ips.first())
+        .and_then(Value::as_str)
+        .map(str::to_owned);
 
     let (state, reason) = claim_state(claim);
     Ok(Sandbox {
         id,
         tenant_id: tenant_id.to_owned(),
         runtime_id,
+        runtime_pod_ip,
         profile,
         state,
         created_at,
@@ -375,7 +383,10 @@ mod tests {
         let now = Utc::now();
         claim.metadata.creation_timestamp = Some(kube_time(now));
         claim.data["status"] = json!({
-            "sandbox": {"name": "sandbox-runtime-123"},
+            "sandbox": {
+                "name": "sandbox-runtime-123",
+                "podIPs": ["10.42.1.230"]
+            },
             "conditions": [{
                 "type": "Ready",
                 "status": "True",
@@ -387,6 +398,7 @@ mod tests {
         let sandbox = claim_to_sandbox(&claim, "tenant-a").expect("sandbox");
         assert_eq!(sandbox.state, SandboxState::Running);
         assert_eq!(sandbox.runtime_id.as_deref(), Some("sandbox-runtime-123"));
+        assert_eq!(sandbox.runtime_pod_ip.as_deref(), Some("10.42.1.230"));
         assert_eq!(
             sandbox.reason.as_deref(),
             Some("SandboxReady: sandbox is ready")

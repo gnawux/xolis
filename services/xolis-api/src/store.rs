@@ -59,6 +59,7 @@ impl SandboxStore for InMemorySandboxStore {
             id: id.clone(),
             tenant_id: command.tenant_id.clone(),
             runtime_id: Some(id),
+            runtime_pod_ip: None,
             profile: command.profile,
             state: SandboxState::Pending,
             created_at: now,
