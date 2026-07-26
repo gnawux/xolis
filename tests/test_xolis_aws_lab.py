@@ -23,6 +23,14 @@ class NodeReadyTests(unittest.TestCase):
         node = {"status": {"conditions": [{"type": "Ready", "status": "False"}]}}
         self.assertFalse(MODULE.AwsLab.node_is_ready(node))
 
+    def test_aws_instance_id_is_read_from_node_provider_id(self) -> None:
+        node = {"spec": {"providerID": "aws:///ap-northeast-1c/i-0123456789"}}
+        self.assertEqual(MODULE.AwsLab.node_instance_id(node), "i-0123456789")
+
+    def test_non_aws_provider_id_is_not_accepted(self) -> None:
+        node = {"spec": {"providerID": "kind://docker/xolis-worker"}}
+        self.assertIsNone(MODULE.AwsLab.node_instance_id(node))
+
 
 class DryRunTests(unittest.TestCase):
     def make_config(self, directory: Path) -> Path:

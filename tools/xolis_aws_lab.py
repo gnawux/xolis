@@ -221,6 +221,9 @@ class AwsLab:
     def wait_for_nodes(self, expected_at_least: int, timeout_seconds: int) -> None:
         deadline = time.monotonic() + timeout_seconds
         while True:
+            instance_ids = self.sandbox_instance_ids(
+                require_ready=expected_at_least > 0
+            )
             output = self.runner.run(
                 ("kubectl", "get", "nodes", "-l", self.config.sandbox_node_selector, "-o", "json"),
                 capture_output=True,
@@ -228,8 +231,12 @@ class AwsLab:
             if self.runner.dry_run:
                 return
             nodes = json.loads(output).get("items", [])
-            ready = sum(self.node_is_ready(node) for node in nodes)
-            if expected_at_least == 0 and not nodes:
+            ready = sum(
+                self.node_is_ready(node)
+                and self.node_instance_id(node) in instance_ids
+                for node in nodes
+            )
+            if expected_at_least == 0 and not nodes and not instance_ids:
                 return
             if expected_at_least > 0 and ready >= expected_at_least:
                 return
@@ -238,6 +245,38 @@ class AwsLab:
                     f"Timed out waiting for sandbox nodes. Expected {expected_at_least}, found {ready} Ready nodes."
                 )
             time.sleep(10)
+
+    def sandbox_instance_ids(self, *, require_ready: bool) -> set[str]:
+        output = self.runner.run(
+            (
+                "aws",
+                "autoscaling",
+                "describe-auto-scaling-groups",
+                "--region",
+                self.config.region,
+                "--auto-scaling-group-names",
+                self.config.sandbox_autoscaling_group,
+                "--output",
+                "json",
+            ),
+            capture_output=True,
+        )
+        if self.runner.dry_run:
+            return set()
+        groups = json.loads(output).get("AutoScalingGroups", [])
+        if len(groups) != 1:
+            raise RuntimeError(
+                "Expected exactly one configured sandbox Auto Scaling group."
+            )
+        instances = groups[0].get("Instances", [])
+        if require_ready:
+            instances = [
+                instance
+                for instance in instances
+                if instance.get("LifecycleState") == "InService"
+                and instance.get("HealthStatus") == "Healthy"
+            ]
+        return {instance["InstanceId"] for instance in instances}
 
     def snapshot_resources(self) -> None:
         output = self.runner.run(
@@ -261,6 +300,13 @@ class AwsLab:
     def node_is_ready(node: dict[str, Any]) -> bool:
         conditions = node.get("status", {}).get("conditions", [])
         return any(condition.get("type") == "Ready" and condition.get("status") == "True" for condition in conditions)
+
+    @staticmethod
+    def node_instance_id(node: dict[str, Any]) -> str | None:
+        provider_id = node.get("spec", {}).get("providerID", "")
+        if not provider_id.startswith("aws:///"):
+            return None
+        return provider_id.rsplit("/", 1)[-1] or None
 
     def require_file(self, path: Path) -> None:
         if self.runner.dry_run:
