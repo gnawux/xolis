@@ -1,0 +1,9 @@
+**
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!services/
+!services/xolis-api/
+!services/xolis-api/**
+!services/xolis-runtime-python/
+!services/xolis-runtime-python/**

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sandbox-router
+  namespace: xolis-system
+  labels:
+    app.kubernetes.io/name: sandbox-router
+    app.kubernetes.io/part-of: xolis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sandbox-router
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sandbox-router
+        app.kubernetes.io/part-of: xolis
+    spec:
+      serviceAccountName: sandbox-router
+      automountServiceAccountToken: true
+      nodeSelector:
+        node-role.xolis.io/system: "true"
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: router
+          image: sandbox-router-go:v0.5.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - --http-bind-address=:8080
+            - --metrics-bind-address=:9090
+            - --health-probe-bind-address=:8081
+            - --cluster-domain=cluster.local
+            - --proxy-timeout=310s
+            - --upstream-max-retries=3
+            - --cache-enabled=true
+            - --cache-namespace=xolis-sandboxes
+          ports:
+            - name: proxy
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
+            - name: healthz
+              containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: healthz
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: healthz
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox-router-svc
+  namespace: xolis-system
+  labels:
+    app.kubernetes.io/name: sandbox-router
+    app.kubernetes.io/part-of: xolis
+spec:
+  selector:
+    app.kubernetes.io/name: sandbox-router
+  ports:
+    - name: proxy
+      port: 8080
+      targetPort: proxy

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agent-sandbox-system
+  labels:
+    app.kubernetes.io/part-of: xolis
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: xolis-sandboxes
+  labels:
+    app.kubernetes.io/part-of: xolis
+    xolis.io/sandbox-namespace: "true"
