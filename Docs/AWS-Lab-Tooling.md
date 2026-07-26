@@ -198,6 +198,24 @@ sample plus `benchmark-summary.json` with minimum, mean, median, and maximum
 values. Three iterations are the default; use more samples for publishable
 results.
 
+### Initial AWS Benchmark Validation
+
+On 2026-07-27, the one-iteration validation run completed successfully on the
+Tokyo lab with the Kata 4.0.0 runtime-rs and Dragonball AMI. It returned the
+warm pool and sandbox ASG to zero. The recorded timings were:
+
+| Metric | Cold | Warm |
+| --- | ---: | ---: |
+| Sandbox Ready | 25.546 s | 1.405 s |
+| First command | 0.450 s | 0.390 s |
+| Explicit cleanup | 5.597 s | 6.652 s |
+
+Node startup took 97.526 seconds and node termination took 82.959 seconds; these
+infrastructure phases are reported separately and are not included in Sandbox
+Ready latency. A single iteration validates orchestration and measurement, not a
+performance claim. Run multiple iterations on controlled nodes before publishing
+comparisons or setting latency targets.
+
 ## Required Local Dependencies
 
 - Python 3.11 or later.

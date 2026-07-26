@@ -24,7 +24,9 @@ tool, a custom Kata 4.0.0 runtime-rs and Dragonball AMI, Agent Sandbox v0.5.3,
 and the Rust Xolis API with a bounded Python runtime. The automated service
 acceptance test validates Kata placement, command and file operations, tenant
 isolation, idempotency, request limits, denied public egress, explicit deletion,
-and TTL cleanup. Nydus remains an optional performance follow-up. See
+and TTL cleanup. The Lab tool also automates repeatable cold-versus-warm
+`SandboxWarmPool` measurements with structured JSON reports. Nydus remains an
+optional performance follow-up. See
 [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for prerequisites and test
 workflows.
 

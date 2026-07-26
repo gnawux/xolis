@@ -316,7 +316,9 @@ behavior in the AWS lab:
 ## Deferred Work
 
 - Public ALB or Gateway API exposure, OIDC, quotas, and multi-tenant namespaces.
-- Warm-pool replicas greater than zero and measured cold/warm latency targets.
+- Statistically useful cold/warm samples and explicit latency targets. The Lab
+  tool implements the comparison workflow, and the initial one-sample AWS
+  validation demonstrated the measurement path.
 - Automatic sandbox-node capacity management.
 - Persistent EBS workspaces and filesystem-only suspend/resume.
 - Kata VM memory snapshots or runtime-native checkpoint and restore.
