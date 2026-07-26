@@ -135,7 +135,7 @@ fn build_claim(
         (PROFILE_LABEL.to_owned(), command.profile.clone()),
     ]);
     if let Some(hash) = idempotency_hash {
-        labels.insert(IDEMPOTENCY_HASH_LABEL.to_owned(), hash);
+        labels.insert(IDEMPOTENCY_HASH_LABEL.to_owned(), hash[..32].to_owned());
     }
 
     let mut claim = DynamicObject::new(&name, &claim_resource());
@@ -366,6 +366,15 @@ mod tests {
         assert_eq!(
             claim.data["spec"]["additionalPodMetadata"]["labels"]["xolis.io/tenant-hash"],
             tenant_hash("tenant-a")
+        );
+        assert_eq!(
+            claim
+                .metadata
+                .labels
+                .as_ref()
+                .and_then(|labels| labels.get("xolis.io/idempotency-hash"))
+                .map(String::len),
+            Some(32)
         );
     }
 
