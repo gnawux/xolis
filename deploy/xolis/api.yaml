@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: api
-          image: xolis-api:dev
+          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-api@sha256:0625ad1aa9655ce2ac20d0377ec1d978b472731fe9a9c1af88f15e73a3c5cfa2
           imagePullPolicy: IfNotPresent
           env:
             - name: XOLIS_LISTEN_ADDRESS
