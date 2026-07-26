@@ -283,3 +283,115 @@ resource "aws_autoscaling_group" "sandbox" {
     aws_iam_role_policy_attachment.node_ecr,
   ]
 }
+
+locals {
+  image_repositories = toset([
+    "xolis/xolis-api",
+    "xolis/xolis-runtime-python",
+    "xolis/sandbox-router",
+  ])
+}
+
+resource "aws_ecr_repository" "images" {
+  for_each = local.image_repositories
+
+  name                 = each.value
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+}
+
+resource "aws_ecr_lifecycle_policy" "images" {
+  for_each = aws_ecr_repository.images
+
+  repository = each.value.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Keep the newest 20 build images"
+      selection = {
+        tagStatus   = "any"
+        countType   = "imageCountMoreThan"
+        countNumber = 20
+      }
+      action = {
+        type = "expire"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role" "image_builder" {
+  name = "${var.name}-image-builder"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "image_builder_ssm" {
+  role       = aws_iam_role.image_builder.name
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy" "image_builder_ecr" {
+  name = "ecr-push"
+  role = aws_iam_role.image_builder.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ecr:GetAuthorizationToken"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeImages",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart",
+        ]
+        Resource = values(aws_ecr_repository.images)[*].arn
+      },
+    ]
+  })
+}
+
+resource "aws_iam_instance_profile" "image_builder" {
+  name = "${var.name}-image-builder"
+  role = aws_iam_role.image_builder.name
+}
+
+resource "aws_security_group" "image_builder" {
+  name        = "${var.name}-image-builder"
+  description = "No-ingress security group for temporary Xolis image builders"
+  vpc_id      = aws_vpc.this.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.name}-image-builder"
+  }
+}
