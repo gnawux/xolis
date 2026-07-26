@@ -17,6 +17,8 @@ infra/**/*.tfstate.*
 infra/**/tfplan
 image/aws/*.pkrvars.hcl
 artifacts/
+tools/xolis_aws_lab.json
+/.codex-tmp/
 tmp/
 env/
 ENV/

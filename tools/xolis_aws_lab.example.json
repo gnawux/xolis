@@ -1,7 +1,7 @@
 {
   "region": "ap-northeast-1",
   "cluster_name": "xolis-lab",
-  "sandbox_autoscaling_group": "xolis-sandbox",
+  "sandbox_autoscaling_group": "xolis-lab-sandbox",
   "sandbox_node_selector": "xolis.io/kata-ready=true",
   "sandbox_min_size": 0,
   "sandbox_desired_size": 1,
