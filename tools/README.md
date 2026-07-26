@@ -55,3 +55,15 @@ pinned Agent Sandbox controller, applies the Xolis manifests, runs the service
 acceptance test, records a Kubernetes resource snapshot, and stops the sandbox
 node. The control-plane components remain installed for subsequent runs; the
 acceptance test deletes every sandbox claim it creates.
+
+Each service run writes two machine-readable reports under its timestamped
+artifact directory:
+
+- `workflow-report.json` records the status and duration of node startup,
+  bootstrap, installation, deployment, acceptance, snapshot, and node stop.
+- `service-smoke-metrics.json` records Sandbox Ready latency, first-command
+  latency, explicit cleanup latency, TTL lifecycle duration, and overall test
+  duration.
+
+Failed runs also write reports and mark the failed phase, which allows repeated
+runs to be compared without parsing console output.

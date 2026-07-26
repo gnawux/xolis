@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -164,6 +165,20 @@ class ArgumentTests(unittest.TestCase):
         forward.ensure_running()
 
         self.assertEqual(restarted, [True])
+
+    def test_benchmark_report_is_structured_json(self) -> None:
+        recorder = MODULE.BenchmarkRecorder()
+        recorder.record("sandbox_ready_seconds", recorder.started_at)
+        recorder.status = "passed"
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            report_path = Path(temporary_directory) / "metrics.json"
+            recorder.write(report_path)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(report["schema_version"], 1)
+        self.assertEqual(report["workflow"], "service_smoke")
+        self.assertEqual(report["status"], "passed")
+        self.assertIn("sandbox_ready_seconds", report["metrics"])
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
 import json
 import shutil
@@ -12,7 +13,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 
 REQUIRED_EXECUTABLES = ("aws", "kubectl", "tofu")
@@ -136,6 +137,7 @@ class AwsLab:
         self.config = config
         self.run_directory = config.artifact_directory / timestamp
         self.runner = CommandRunner(dry_run, self.run_directory / "commands.log")
+        self.phase_results: list[dict[str, Any]] = []
 
     def doctor(self) -> None:
         missing = [name for name in REQUIRED_EXECUTABLES if shutil.which(name) is None]
@@ -204,20 +206,86 @@ class AwsLab:
             self.stop_node()
 
     def service(self) -> None:
-        self.start_node()
+        started_at = dt.datetime.now(dt.timezone.utc)
+        status = "passed"
         try:
-            self.bootstrap()
-            self.require_file(self.config.agent_sandbox_install_script)
-            self.runner.run((str(self.config.agent_sandbox_install_script),))
-            self.require_directory(self.config.service_manifests_directory)
-            self.runner.run(
-                ("kubectl", "apply", "-k", str(self.config.service_manifests_directory))
-            )
-            self.require_file(self.config.service_test_script)
-            self.runner.run(("python3", str(self.config.service_test_script)))
-            self.snapshot_service_resources()
+            with self.phase("node_start"):
+                self.start_node()
+            with self.phase("runtime_bootstrap"):
+                self.bootstrap()
+            with self.phase("agent_sandbox_install"):
+                self.require_file(self.config.agent_sandbox_install_script)
+                self.runner.run((str(self.config.agent_sandbox_install_script),))
+            with self.phase("service_deploy"):
+                self.require_directory(self.config.service_manifests_directory)
+                self.runner.run(
+                    ("kubectl", "apply", "-k", str(self.config.service_manifests_directory))
+                )
+            with self.phase("service_acceptance"):
+                self.require_file(self.config.service_test_script)
+                self.runner.run(
+                    (
+                        "python3",
+                        str(self.config.service_test_script),
+                        "--report",
+                        str(self.run_directory / "service-smoke-metrics.json"),
+                    )
+                )
+            with self.phase("resource_snapshot"):
+                self.snapshot_service_resources()
+        except BaseException:
+            status = "failed"
+            raise
         finally:
-            self.stop_node()
+            try:
+                with self.phase("node_stop"):
+                    self.stop_node()
+            except BaseException:
+                status = "failed"
+                raise
+            finally:
+                self.write_workflow_report("service", status, started_at)
+
+    @contextlib.contextmanager
+    def phase(self, name: str) -> Iterator[None]:
+        started = time.monotonic()
+        status = "passed"
+        try:
+            yield
+        except BaseException:
+            status = "failed"
+            raise
+        finally:
+            self.phase_results.append(
+                {
+                    "name": name,
+                    "status": status,
+                    "duration_seconds": round(time.monotonic() - started, 3),
+                }
+            )
+
+    def write_workflow_report(
+        self, workflow: str, status: str, started_at: dt.datetime
+    ) -> None:
+        completed_at = dt.datetime.now(dt.timezone.utc)
+        report = {
+            "schema_version": 1,
+            "workflow": workflow,
+            "status": status,
+            "started_at": started_at.isoformat(),
+            "completed_at": completed_at.isoformat(),
+            "duration_seconds": round((completed_at - started_at).total_seconds(), 3),
+            "environment": {
+                "region": self.config.region,
+                "cluster_name": self.config.cluster_name,
+                "sandbox_autoscaling_group": self.config.sandbox_autoscaling_group,
+            },
+            "phases": self.phase_results,
+        }
+        report_path = self.run_directory / "workflow-report.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote workflow report: {report_path}")
 
     def update_kubeconfig(self) -> None:
         self.runner.run(

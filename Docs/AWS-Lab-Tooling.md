@@ -182,6 +182,12 @@ the infrastructure is an explicit operator action:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra destroy
 
+Every `service run` writes `workflow-report.json` and
+`service-smoke-metrics.json` in its timestamped artifact directory. These JSON
+files capture infrastructure phase durations and sandbox-level Ready, first
+command, cleanup, and TTL timings. Reports are written for failed runs as well
+as successful runs.
+
 ## Required Local Dependencies
 
 - Python 3.11 or later.

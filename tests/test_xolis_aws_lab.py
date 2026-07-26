@@ -93,8 +93,25 @@ class DryRunTests(unittest.TestCase):
             self.assertIn("kubectl apply -k", log)
             self.assertIn("python3", log)
             self.assertIn("smoke_service.py", log)
+            self.assertIn("--report", log)
             self.assertIn("kubectl get sandboxclaims,sandboxes,pods,services", log)
             self.assertEqual(log.count("update-auto-scaling-group"), 2)
+            report = json.loads(
+                (lab.run_directory / "workflow-report.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(report["status"], "passed")
+            self.assertEqual(
+                [phase["name"] for phase in report["phases"]],
+                [
+                    "node_start",
+                    "runtime_bootstrap",
+                    "agent_sandbox_install",
+                    "service_deploy",
+                    "service_acceptance",
+                    "resource_snapshot",
+                    "node_stop",
+                ],
+            )
 
     def test_service_stops_node_when_validation_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -109,6 +126,11 @@ class DryRunTests(unittest.TestCase):
 
             lab.start_node.assert_called_once_with()
             lab.stop_node.assert_called_once_with()
+            report = json.loads(
+                (lab.run_directory / "workflow-report.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(report["status"], "failed")
+            self.assertEqual(report["phases"][1]["status"], "failed")
 
 
 if __name__ == "__main__":

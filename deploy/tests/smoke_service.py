@@ -13,11 +13,35 @@ import urllib.parse
 import urllib.request
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
 class SmokeFailure(RuntimeError):
     """The deployment failed an acceptance requirement."""
+
+
+class BenchmarkRecorder:
+    def __init__(self) -> None:
+        self.started_at = time.monotonic()
+        self.metrics: dict[str, float] = {}
+        self.status = "failed"
+        self.error: str | None = None
+
+    def record(self, name: str, started_at: float) -> None:
+        self.metrics[name] = round(time.monotonic() - started_at, 3)
+
+    def write(self, path: Path) -> None:
+        report = {
+            "schema_version": 1,
+            "workflow": "service_smoke",
+            "status": self.status,
+            "error": self.error,
+            "duration_seconds": round(time.monotonic() - self.started_at, 3),
+            "metrics": self.metrics,
+        }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
 
 class ApiError(RuntimeError):
@@ -242,11 +266,18 @@ class SmokeConfig:
 
 
 class ServiceSmokeTest:
-    def __init__(self, client: XolisClient, kubernetes: Kubernetes, config: SmokeConfig) -> None:
+    def __init__(
+        self,
+        client: XolisClient,
+        kubernetes: Kubernetes,
+        config: SmokeConfig,
+        benchmark: BenchmarkRecorder | None = None,
+    ) -> None:
         self.client = client
         self.kubernetes = kubernetes
         self.config = config
         self.claims: set[str] = set()
+        self.benchmark = benchmark or BenchmarkRecorder()
 
     def report(self, message: str) -> None:
         print(f"[PASS] {message}", flush=True)
@@ -305,6 +336,7 @@ class ServiceSmokeTest:
         return runtime_name
 
     def validate_commands(self, sandbox_id: str) -> None:
+        started = time.monotonic()
         result = self.client.execute(
             sandbox_id,
             "python3 -c \"import sys; print('xolis-stdout'); "
@@ -317,6 +349,7 @@ class ServiceSmokeTest:
             "exit_code": 7,
         }:
             raise SmokeFailure(f"unexpected command result: {result}")
+        self.benchmark.record("first_command_seconds", started)
 
         timed_out = self.client.execute(
             sandbox_id,
@@ -387,14 +420,17 @@ class ServiceSmokeTest:
         self.report("create is idempotent and tenant isolation hides the sandbox")
 
     def delete_and_verify(self, sandbox_id: str, runtime_name: str) -> None:
+        started = time.monotonic()
         self.client.delete(sandbox_id)
         self.wait_until_missing("sandboxclaim", sandbox_id, self.config.cleanup_timeout_seconds)
         self.wait_until_missing("sandbox", runtime_name, self.config.cleanup_timeout_seconds)
         self.wait_until_missing("pod", runtime_name, self.config.cleanup_timeout_seconds)
         self.claims.discard(sandbox_id)
+        self.benchmark.record("explicit_cleanup_seconds", started)
         self.report("explicit deletion removes the claim, Sandbox, and Pod")
 
     def validate_ttl(self) -> None:
+        started = time.monotonic()
         key = f"ttl-{uuid.uuid4().hex}"
         created = self.client.create(self.config.profile, self.config.ttl_test_seconds, key)
         sandbox_id = created["id"]
@@ -420,6 +456,7 @@ class ServiceSmokeTest:
 
         self.wait_until_missing("sandbox", runtime_name, self.config.cleanup_timeout_seconds)
         self.wait_until_missing("pod", runtime_name, self.config.cleanup_timeout_seconds)
+        self.benchmark.record("ttl_lifecycle_seconds", started)
         self.report("absolute TTL removes the abandoned Sandbox and Pod")
 
     def cleanup(self) -> None:
@@ -440,12 +477,14 @@ class ServiceSmokeTest:
             return
 
         key = f"smoke-{uuid.uuid4().hex}"
+        ready_started = time.monotonic()
         created = self.client.create(self.config.profile, 300, key)
         sandbox_id = created["id"]
         self.claims.add(sandbox_id)
         try:
             self.validate_tenant_and_idempotency(sandbox_id, key)
             self.wait_for_state(sandbox_id, {"Running"}, self.config.ready_timeout_seconds)
+            self.benchmark.record("sandbox_ready_seconds", ready_started)
             runtime_name = self.validate_placement(sandbox_id)
             self.validate_commands(sandbox_id)
             self.validate_files(sandbox_id)
@@ -498,6 +537,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ttl-timeout-seconds", type=int, default=180)
     parser.add_argument("--skip-ttl", action="store_true")
     parser.add_argument("--ttl-only", action="store_true")
+    parser.add_argument("--report", type=Path, help="Write structured timing results as JSON")
     return parser
 
 
@@ -505,6 +545,7 @@ def execute(
     args: argparse.Namespace,
     base_url: str,
     port_forward: PortForward | None,
+    benchmark: BenchmarkRecorder,
 ) -> None:
     client = XolisClient(
         base_url,
@@ -528,24 +569,34 @@ def execute(
         skip_ttl=args.skip_ttl,
         ttl_only=args.ttl_only,
     )
-    ServiceSmokeTest(client, Kubernetes(args.sandbox_namespace), config).run()
+    ServiceSmokeTest(
+        client, Kubernetes(args.sandbox_namespace), config, benchmark
+    ).run()
     print("Xolis service smoke test passed", flush=True)
 
 
 def main() -> int:
     args = build_parser().parse_args()
+    benchmark = BenchmarkRecorder()
+    exit_code = 0
     try:
         if args.skip_ttl and args.ttl_only:
             raise SmokeFailure("--skip-ttl and --ttl-only cannot be used together")
         if args.base_url:
-            execute(args, args.base_url, None)
+            execute(args, args.base_url, None, benchmark)
         else:
             with PortForward(args.api_namespace, args.api_service, args.local_port) as forward:
-                execute(args, forward.base_url, forward)
+                execute(args, forward.base_url, forward, benchmark)
     except (ApiError, SmokeFailure, OSError, ValueError) as error:
+        benchmark.error = str(error)
         print(f"smoke test failed: {error}", file=sys.stderr)
-        return 1
-    return 0
+        exit_code = 1
+    else:
+        benchmark.status = "passed"
+    finally:
+        if args.report:
+            benchmark.write(args.report)
+    return exit_code
 
 
 if __name__ == "__main__":
