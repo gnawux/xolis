@@ -31,6 +31,9 @@ class LabConfig:
     bootstrap_manifests: tuple[Path, ...]
     test_manifest: Path
     ready_command: tuple[str, ...]
+    agent_sandbox_install_script: Path
+    service_manifests_directory: Path
+    service_test_script: Path
     artifact_directory: Path
     node_ready_timeout_seconds: int
     node_stop_timeout_seconds: int
@@ -71,6 +74,20 @@ class LabConfig:
             bootstrap_manifests=tuple((base / item).resolve() for item in data.get("bootstrap_manifests", [])),
             test_manifest=(base / data["test_manifest"]).resolve(),
             ready_command=tuple(str(item) for item in data["ready_command"]),
+            agent_sandbox_install_script=(
+                base
+                / data.get(
+                    "agent_sandbox_install_script",
+                    "../deploy/agent-sandbox/install-v0.5.3.sh",
+                )
+            ).resolve(),
+            service_manifests_directory=(
+                base / data.get("service_manifests_directory", "../deploy")
+            ).resolve(),
+            service_test_script=(
+                base
+                / data.get("service_test_script", "../deploy/tests/smoke_service.py")
+            ).resolve(),
             artifact_directory=(base / data["artifact_directory"]).resolve(),
             node_ready_timeout_seconds=int(data.get("node_ready_timeout_seconds", 900)),
             node_stop_timeout_seconds=int(data.get("node_stop_timeout_seconds", 900)),
@@ -186,6 +203,22 @@ class AwsLab:
             self.cleanup_test_resources()
             self.stop_node()
 
+    def service(self) -> None:
+        self.start_node()
+        try:
+            self.bootstrap()
+            self.require_file(self.config.agent_sandbox_install_script)
+            self.runner.run((str(self.config.agent_sandbox_install_script),))
+            self.require_directory(self.config.service_manifests_directory)
+            self.runner.run(
+                ("kubectl", "apply", "-k", str(self.config.service_manifests_directory))
+            )
+            self.require_file(self.config.service_test_script)
+            self.runner.run(("python3", str(self.config.service_test_script)))
+            self.snapshot_service_resources()
+        finally:
+            self.stop_node()
+
     def update_kubeconfig(self) -> None:
         self.runner.run(
             (
@@ -288,6 +321,24 @@ class AwsLab:
             snapshot.write_text(output, encoding="utf-8")
             print(f"Wrote Kubernetes resource snapshot: {snapshot}")
 
+    def snapshot_service_resources(self) -> None:
+        output = self.runner.run(
+            (
+                "kubectl",
+                "get",
+                "sandboxclaims,sandboxes,pods,services",
+                "--namespace",
+                "xolis-sandboxes",
+                "--output",
+                "yaml",
+            ),
+            capture_output=True,
+        )
+        if not self.runner.dry_run:
+            snapshot = self.run_directory / "service-resource-snapshot.yaml"
+            snapshot.write_text(output, encoding="utf-8")
+            print(f"Wrote service resource snapshot: {snapshot}")
+
     def cleanup_test_resources(self) -> None:
         if self.runner.dry_run or self.config.test_manifest.is_file():
             try:
@@ -314,6 +365,12 @@ class AwsLab:
         if not path.is_file():
             raise RuntimeError(f"Required manifest does not exist: {path}")
 
+    def require_directory(self, path: Path) -> None:
+        if self.runner.dry_run:
+            return
+        if not path.is_dir():
+            raise RuntimeError(f"Required manifest directory does not exist: {path}")
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Xolis AWS minimal-deployment checks.")
@@ -328,6 +385,8 @@ def parse_args() -> argparse.Namespace:
     commands.add_parser("bootstrap", help="Apply configured node bootstrap manifests.")
     cycle = commands.add_parser("cycle", help="Run a disposable sandbox workload test.")
     cycle.add_argument("action", choices=("run",))
+    service = commands.add_parser("service", help="Run the complete Xolis service test.")
+    service.add_argument("action", choices=("run",))
     return parser.parse_args()
 
 
@@ -348,6 +407,8 @@ def main() -> int:
             lab.bootstrap()
         elif args.command == "cycle":
             lab.cycle()
+        elif args.command == "service":
+            lab.service()
         return 0
     except (RuntimeError, ValueError, TimeoutError, subprocess.CalledProcessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

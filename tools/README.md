@@ -44,3 +44,14 @@ service acceptance test while the sandbox ASG has one Ready node:
 
 See `deploy/README.md` for the complete service deployment and validation
 sequence.
+
+The Lab tool can run that sequence and guarantee that the sandbox ASG is
+returned to zero even when installation or validation fails:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json service run
+
+The command starts the sandbox node, applies the runtime bootstrap, installs the
+pinned Agent Sandbox controller, applies the Xolis manifests, runs the service
+acceptance test, records a Kubernetes resource snapshot, and stops the sandbox
+node. The control-plane components remain installed for subsequent runs; the
+acceptance test deletes every sandbox claim it creates.

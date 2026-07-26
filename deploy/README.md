@@ -34,6 +34,11 @@ self-cleaning service acceptance test:
 
     python3 deploy/tests/smoke_service.py
 
+For the normal AWS lab workflow, let the Lab tool perform the complete sequence
+and return the sandbox ASG to zero in a guaranteed cleanup path:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json service run
+
 The test opens a temporary local port-forward to `xolis-api`, creates a sandbox,
 verifies Kata placement, commands, files, tenant isolation, idempotency, network
 egress policy, explicit deletion, and absolute TTL cleanup. It deletes claims it

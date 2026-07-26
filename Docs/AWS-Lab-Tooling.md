@@ -65,8 +65,14 @@ The xolis_aws_lab.py tool uses a JSON configuration file and supports:
     node stop
     bootstrap
     cycle run
+    service run
 
-The infra commands delegate to OpenTofu. The node commands scale only the configured sandbox self-managed Auto Scaling group through the AWS Auto Scaling API. The cycle command runs start, test, snapshot, cleanup, and stop in order. Cleanup and node stop run even if the workload readiness check fails.
+The infra commands delegate to OpenTofu. The node commands scale only the
+configured sandbox self-managed Auto Scaling group through the AWS Auto Scaling
+API. The cycle command runs the minimal Kata Pod path. The service command
+installs the pinned Agent Sandbox release and Xolis manifests, runs the complete
+acceptance test, saves diagnostic resources, and stops the node. Node stop runs
+even if deployment or validation fails.
 
 The lab deliberately uses explicit capacity rather than workload-driven node autoscaling. A test cycle changes the sandbox Auto Scaling group from `min=0, desired=0, max=1` to `min=0, desired=1, max=1`, waits for a labelled Kubernetes node to become Ready, and returns the group to zero after cleanup. Do not install Cluster Autoscaler or Karpenter for this initial test path. This makes test timing, cost, and cleanup deterministic.
 
@@ -167,15 +173,12 @@ To validate the complete service, start the sandbox node, install the pinned
 Agent Sandbox release, apply the Xolis stack, and run the self-cleaning service
 test:
 
-    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json node start
-    deploy/agent-sandbox/install-v0.5.3.sh
-    kubectl apply -k deploy
-    python3 deploy/tests/smoke_service.py
-    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json node stop
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json service run
 
-The service test deletes claims it creates when an assertion fails. The node
-stop remains explicit, so always run it after the service test. Destroying the
-infrastructure is also an explicit operator action:
+The service test deletes claims it creates when an assertion fails, and the Lab
+tool returns the sandbox ASG to zero in its cleanup path. The Agent Sandbox and
+Xolis control-plane components remain installed for subsequent runs. Destroying
+the infrastructure is an explicit operator action:
 
     python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json infra destroy
 

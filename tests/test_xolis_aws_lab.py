@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).parents[1] / "tools" / "xolis_aws_lab.py"
@@ -78,6 +79,36 @@ class DryRunTests(unittest.TestCase):
 
             command_log = next(config.artifact_directory.glob("*/commands.log"))
             self.assertIn("tofu", command_log.read_text(encoding="utf-8"))
+
+    def test_service_dry_run_executes_complete_sequence(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config = MODULE.LabConfig.load(self.make_config(Path(temporary_directory)))
+            lab = MODULE.AwsLab(config, dry_run=True)
+
+            lab.service()
+
+            command_log = next(config.artifact_directory.glob("*/commands.log"))
+            log = command_log.read_text(encoding="utf-8")
+            self.assertIn("install-v0.5.3.sh", log)
+            self.assertIn("kubectl apply -k", log)
+            self.assertIn("python3", log)
+            self.assertIn("smoke_service.py", log)
+            self.assertIn("kubectl get sandboxclaims,sandboxes,pods,services", log)
+            self.assertEqual(log.count("update-auto-scaling-group"), 2)
+
+    def test_service_stops_node_when_validation_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config = MODULE.LabConfig.load(self.make_config(Path(temporary_directory)))
+            lab = MODULE.AwsLab(config, dry_run=True)
+            lab.start_node = mock.Mock()
+            lab.bootstrap = mock.Mock(side_effect=RuntimeError("deployment failed"))
+            lab.stop_node = mock.Mock()
+
+            with self.assertRaisesRegex(RuntimeError, "deployment failed"):
+                lab.service()
+
+            lab.start_node.assert_called_once_with()
+            lab.stop_node.assert_called_once_with()
 
 
 if __name__ == "__main__":
