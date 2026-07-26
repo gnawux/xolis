@@ -7,6 +7,29 @@ metadata:
     app.kubernetes.io/part-of: xolis
     xolis.io/profile: python-basic-v1
 spec:
+  networkPolicyManagement: Managed
+  networkPolicy:
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: xolis-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: sandbox-router
+        ports:
+          - protocol: TCP
+            port: 8888
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
   podTemplate:
     metadata:
       labels:

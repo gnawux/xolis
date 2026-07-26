@@ -174,7 +174,7 @@ The first server-owned profile is `python-basic-v1`:
 | Linux capabilities | Drop all |
 | Default TTL | 30 minutes |
 | Maximum TTL | 2 hours |
-| Network | Default deny; DNS only until explicit egress is required |
+| Network | Controller-managed default deny; DNS only until explicit egress is required |
 
 Use `emptyDir` first so deletion has unambiguous cleanup semantics. Add an EBS
 PVC profile only after create, execute, files, TTL, and deletion are reliable.
@@ -263,6 +263,12 @@ model, update policy, and protocol compatibility have been reviewed.
 - Apply default-deny ingress and egress NetworkPolicies. Allow DNS and the
   router-to-runtime path explicitly. Add outbound destinations only as named
   profiles are introduced.
+- Override Agent Sandbox's public-internet secure default with a managed
+  template policy. The `python-basic-v1` profile permits only DNS egress and
+  ingress from the Xolis router.
+- Enable the Amazon VPC CNI network-policy controller and node agent in the AWS
+  lab. Kubernetes NetworkPolicy objects do not enforce traffic unless the CNI
+  implements them.
 - Enforce CPU, memory, ephemeral-storage, workspace, command-time, output-size,
   upload-size, and TTL limits.
 - Set `shutdownPolicy: DeleteForeground` so callers can observe that the Pod is

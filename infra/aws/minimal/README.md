@@ -6,6 +6,7 @@ This OpenTofu root creates the persistent infrastructure for the first Xolis AWS
 - An EKS control plane with public endpoint access.
 - A one-node EKS managed system node group.
 - A self-managed sandbox Auto Scaling group with capacity fixed at zero until the lab tool starts a test.
+- Amazon VPC CNI network-policy enforcement for sandbox ingress and egress isolation.
 - Three immutable, scan-on-push private ECR repositories.
 - A no-ingress security group and least-privilege instance profile for
   temporary, SSM-managed image build instances.
