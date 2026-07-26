@@ -92,6 +92,7 @@ Install the following tools and make them available on `PATH`:
 - AWS CLI version 2.
 - OpenTofu.
 - Packer when building the custom Kata and Nydus sandbox AMI.
+- AWS Session Manager Plugin when Packer builds the AMI through Session Manager.
 - `kubectl` compatible with the target EKS cluster version.
 - Helm when the bootstrap procedure uses Helm.
 
@@ -101,6 +102,7 @@ Confirm the local installation:
     aws --version
     tofu version
     packer version
+    session-manager-plugin --version
     kubectl version --client
     helm version
 
@@ -124,7 +126,7 @@ The identity used by OpenTofu needs permissions appropriate to the supplied infr
 Before a non-dry-run command, prepare all of the following:
 
 - The supplied `infra/aws/minimal` OpenTofu root configured with the IAM Identity Center administrator role ARN. Configure a remote, locked state backend before shared use.
-- A Packer build configuration and pinned Kata and Nydus artifacts for the custom sandbox AMI. The supplied build definition is at `image/aws`.
+- A Packer build configuration and pinned Kata artifacts for the custom sandbox AMI. Nydus artifacts are optional for the initial Kata smoke test. The supplied build definition is at `image/aws`.
 - Bootstrap manifests that install and configure the required sandbox runtime components.
 - A test workload manifest and a readiness command that reflects its actual readiness contract.
 - A sandbox node selector that matches nodes in the dedicated Auto Scaling group. Do not use a shared or production node group.

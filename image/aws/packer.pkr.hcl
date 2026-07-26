@@ -38,35 +38,48 @@ variable "kata_archive_sha256" {
   sensitive   = true
 }
 
+variable "kata_source_commit" {
+  type        = string
+  description = "Immutable kata-containers source commit used to build the runtime-rs Dragonball shim."
+}
+
 variable "nydus_version" {
   type        = string
-  description = "Pinned Nydus release version, without a leading v."
+  description = "Optional pinned Nydus release version, without a leading v. Leave empty for the Kata-only baseline."
+  default     = ""
 }
 
 variable "nydus_archive_url" {
   type        = string
-  description = "HTTPS URL for the pinned Nydus static archive."
+  description = "Optional HTTPS URL for the pinned Nydus static archive."
+  default     = ""
 }
 
 variable "nydus_archive_sha256" {
   type        = string
-  description = "SHA-256 checksum for the Nydus archive."
+  description = "Optional SHA-256 checksum for the Nydus archive."
   sensitive   = true
+  default     = ""
 }
 
 source "amazon-ebs" "sandbox" {
-  region                      = var.region
-  source_ami                  = var.source_ami_id
-  instance_type               = "m8i.xlarge"
-  ssh_username                = "ec2-user"
-  subnet_id                   = var.subnet_id
-  associate_public_ip_address = true
-  ami_name                    = "xolis-sandbox-${formatdate("YYYYMMDDhhmm", timestamp())}"
-  ami_description             = "Xolis sandbox node: Kata Containers and Nydus, built from an EKS-optimized AL2023 AMI."
+  region                                = var.region
+  source_ami                            = var.source_ami_id
+  instance_type                         = "m8i.xlarge"
+  ssh_username                          = "ec2-user"
+  ssh_interface                         = "session_manager"
+  pause_before_ssm                      = "30s"
+  subnet_id                             = var.subnet_id
+  associate_public_ip_address           = true
+  temporary_security_group_source_cidrs = []
+  ami_name                              = "xolis-sandbox-${formatdate("YYYYMMDDhhmm", timestamp())}"
+  ami_description                       = "Xolis sandbox node: Kata Containers and Nydus, built from an EKS-optimized AL2023 AMI."
 
   launch_block_device_mappings {
-    device_name           = "/dev/xvda"
-    volume_size           = 40
+    device_name = "/dev/xvda"
+    # The fixed Kata 4.0.0 source build temporarily materializes the complete
+    # Rust dependency graph as well as the 1.86 GiB static guest asset.
+    volume_size           = 200
     volume_type           = "gp3"
     delete_on_termination = true
     encrypted             = true
@@ -77,7 +90,27 @@ source "amazon-ebs" "sandbox" {
     Environment  = "lab"
     ManagedBy    = "packer"
     KataVersion  = var.kata_version
-    NydusVersion = var.nydus_version
+    KataCommit   = var.kata_source_commit
+    NydusVersion = var.nydus_version != "" ? var.nydus_version : "disabled"
+  }
+
+  temporary_iam_instance_profile_policy_document {
+    Version = "2012-10-17"
+
+    Statement {
+      Effect = "Allow"
+      Action = [
+        "ssm:UpdateInstanceInformation",
+        "ssmmessages:CreateControlChannel",
+        "ssmmessages:CreateDataChannel",
+        "ssmmessages:OpenControlChannel",
+        "ssmmessages:OpenDataChannel",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply",
+      ]
+      Resource = ["*"]
+    }
   }
 }
 
@@ -104,11 +137,12 @@ build {
       "KATA_VERSION=${var.kata_version}",
       "KATA_ARCHIVE_URL=${var.kata_archive_url}",
       "KATA_ARCHIVE_SHA256=${var.kata_archive_sha256}",
+      "KATA_SOURCE_COMMIT=${var.kata_source_commit}",
       "NYDUS_VERSION=${var.nydus_version}",
       "NYDUS_ARCHIVE_URL=${var.nydus_archive_url}",
       "NYDUS_ARCHIVE_SHA256=${var.nydus_archive_sha256}",
     ]
-    execute_command = "chmod +x {{ .Path }}; sudo -E {{ .Path }}"
+    execute_command = "chmod +x {{ .Path }}; sudo /usr/bin/env {{ .Vars }} {{ .Path }}"
     script          = "scripts/install-runtime.sh"
   }
 }
