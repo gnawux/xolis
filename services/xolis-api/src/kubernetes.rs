@@ -207,11 +207,17 @@ fn claim_to_sandbox(claim: &DynamicObject, tenant_id: &str) -> Result<Sandbox, S
         .transpose()
         .map_err(|error| StoreError::Unavailable(format!("invalid claim metadata: {error}")))?
         .unwrap_or_default();
+    let runtime_id = claim
+        .data
+        .pointer("/status/sandbox/name")
+        .and_then(Value::as_str)
+        .map(str::to_owned);
 
     let (state, reason) = claim_state(claim);
     Ok(Sandbox {
         id,
         tenant_id: tenant_id.to_owned(),
+        runtime_id,
         profile,
         state,
         created_at,
@@ -369,6 +375,7 @@ mod tests {
         let now = Utc::now();
         claim.metadata.creation_timestamp = Some(kube_time(now));
         claim.data["status"] = json!({
+            "sandbox": {"name": "sandbox-runtime-123"},
             "conditions": [{
                 "type": "Ready",
                 "status": "True",
@@ -379,6 +386,7 @@ mod tests {
 
         let sandbox = claim_to_sandbox(&claim, "tenant-a").expect("sandbox");
         assert_eq!(sandbox.state, SandboxState::Running);
+        assert_eq!(sandbox.runtime_id.as_deref(), Some("sandbox-runtime-123"));
         assert_eq!(
             sandbox.reason.as_deref(),
             Some("SandboxReady: sandbox is ready")

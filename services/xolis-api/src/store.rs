@@ -54,9 +54,11 @@ impl SandboxStore for InMemorySandboxStore {
         }
 
         let now = Utc::now();
+        let id = Uuid::new_v4().to_string();
         let sandbox = Sandbox {
-            id: Uuid::new_v4().to_string(),
+            id: id.clone(),
             tenant_id: command.tenant_id.clone(),
+            runtime_id: Some(id),
             profile: command.profile,
             state: SandboxState::Pending,
             created_at: now,
@@ -109,5 +111,14 @@ impl SandboxStore for InMemorySandboxStore {
         state.sandboxes.remove(id);
         state.idempotency.retain(|_, value| value != &sandbox.id);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+impl InMemorySandboxStore {
+    pub async fn mark_running(&self, id: &str) {
+        let mut state = self.state.write().await;
+        let sandbox = state.sandboxes.get_mut(id).expect("test sandbox");
+        sandbox.state = SandboxState::Running;
     }
 }

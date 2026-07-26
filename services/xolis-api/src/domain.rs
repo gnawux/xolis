@@ -37,6 +37,8 @@ pub struct Sandbox {
     pub id: String,
     #[serde(skip)]
     pub tenant_id: String,
+    #[serde(skip)]
+    pub runtime_id: Option<String>,
     pub profile: String,
     pub state: SandboxState,
     pub created_at: DateTime<Utc>,
@@ -50,6 +52,34 @@ pub struct Sandbox {
 #[serde(rename_all = "camelCase")]
 pub struct SandboxList {
     pub items: Vec<Sandbox>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecuteCommandRequest {
+    pub command: String,
+    #[serde(default = "default_command_timeout")]
+    pub timeout_seconds: u64,
+}
+
+fn default_command_timeout() -> u64 {
+    30
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct ExecuteCommandResponse {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct FileEntry {
+    pub name: String,
+    pub size: u64,
+    #[serde(rename = "type")]
+    pub entry_type: String,
+    pub mod_time: f64,
 }
 
 #[derive(Clone, Debug, Serialize)]
