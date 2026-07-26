@@ -22,6 +22,12 @@ Create a local variable file from the example and fill it with release URLs and 
 
 Record the AMI ID in `infra/aws/minimal/terraform.tfvars` as `sandbox_ami_id`, then run `tofu plan` and `tofu apply`. The ASG will remain at zero until a Lab cycle starts it.
 
+## Kata Version Policy
+
+The example pins Kata Containers 4.0.0, the current stable release, including its immutable release-asset digest. This is the baseline for the first AMI and smoke test because it makes results reproducible. Do not replace it with an unversioned `main` build in this file.
+
+To evaluate Kata main, create a separate variable file that identifies an immutable source commit and records the builder provenance, archive SHA-256, guest kernel, guest root filesystem, and Dragonball configuration. Build it into a separately tagged AMI and keep it out of the baseline comparison.
+
 ## Validation Boundary
 
 The smoke test uses `RuntimeClass/xolis-kata`, which selects the `xolis-kata` handler. Nydus is installed and its service is enabled, but the first smoke image is an ordinary OCI image. Add a pinned Nydus-formatted image after the Kata execution path is stable.

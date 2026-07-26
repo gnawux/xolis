@@ -17,7 +17,7 @@ for variable in "${required_variables[@]}"; do
   fi
 done
 
-dnf install -y curl tar xz
+dnf install -y curl tar xz zstd
 
 work_directory="$(mktemp -d)"
 trap 'rm -rf "${work_directory}"' EXIT
@@ -57,8 +57,8 @@ install_release_root() {
   cp -a "${release_root}/." "${destination}/"
 }
 
-kata_archive="${work_directory}/kata-static.tar.xz"
-nydus_archive="${work_directory}/nydus-static.tar.xz"
+kata_archive="${work_directory}/kata-static.tar.zst"
+nydus_archive="${work_directory}/nydus-static.tar.zst"
 
 download_and_verify "${KATA_ARCHIVE_URL}" "${KATA_ARCHIVE_SHA256}" "${kata_archive}"
 download_and_verify "${NYDUS_ARCHIVE_URL}" "${NYDUS_ARCHIVE_SHA256}" "${nydus_archive}"

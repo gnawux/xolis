@@ -2,9 +2,11 @@ region        = "ap-northeast-1"
 source_ami_id = "ami-replace-with-eks-optimized-al2023-ami"
 subnet_id     = "subnet-replace-with-public-build-subnet"
 
-kata_version        = "replace-with-pinned-version"
-kata_archive_url    = "https://example.invalid/kata-static.tar.xz"
-kata_archive_sha256 = "replace-with-verified-sha256"
+# Kata Containers 4.0.0 is the initial stable baseline. This digest is from
+# the GitHub release-asset metadata, stripped of its `sha256:` prefix.
+kata_version        = "4.0.0"
+kata_archive_url    = "https://github.com/kata-containers/kata-containers/releases/download/4.0.0/kata-static-4.0.0-amd64.tar.zst"
+kata_archive_sha256 = "2c3b9dfeba355582b40aee462b12916c9740654d0230f696adf719d67b063a8c"
 
 nydus_version        = "replace-with-pinned-version"
 nydus_archive_url    = "https://example.invalid/nydus-static.tar.xz"
