@@ -151,12 +151,6 @@ fn build_claim(
             "lifecycle": {
                 "shutdownTime": expires_at.to_rfc3339_opts(SecondsFormat::Secs, true),
                 "shutdownPolicy": "DeleteForeground"
-            },
-            "additionalPodMetadata": {
-                "labels": {
-                    (TENANT_HASH_LABEL): tenant_hash,
-                    (PROFILE_LABEL): command.profile
-                }
             }
         }
     });
@@ -323,7 +317,7 @@ mod tests {
     use k8s_openapi::apimachinery::pkg::apis::meta::v1::Time;
     use serde_json::json;
 
-    use super::{build_claim, claim_to_sandbox, idempotency_hash, tenant_hash};
+    use super::{build_claim, claim_to_sandbox, idempotency_hash};
     use crate::domain::{CreateSandboxCommand, SandboxState};
 
     fn command() -> CreateSandboxCommand {
@@ -363,10 +357,7 @@ mod tests {
             claim.data["spec"]["lifecycle"]["shutdownPolicy"],
             "DeleteForeground"
         );
-        assert_eq!(
-            claim.data["spec"]["additionalPodMetadata"]["labels"]["xolis.io/tenant-hash"],
-            tenant_hash("tenant-a")
-        );
+        assert!(claim.data["spec"].get("additionalPodMetadata").is_none());
         assert_eq!(
             claim
                 .metadata
