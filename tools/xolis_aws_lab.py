@@ -8,6 +8,7 @@ import contextlib
 import datetime as dt
 import json
 import shutil
+import statistics
 import subprocess
 import sys
 import time
@@ -38,6 +39,9 @@ class LabConfig:
     artifact_directory: Path
     node_ready_timeout_seconds: int
     node_stop_timeout_seconds: int
+    warm_pool_namespace: str
+    warm_pool_name: str
+    warm_pool_ready_timeout_seconds: int
 
     @classmethod
     def load(cls, path: Path) -> "LabConfig":
@@ -92,6 +96,11 @@ class LabConfig:
             artifact_directory=(base / data["artifact_directory"]).resolve(),
             node_ready_timeout_seconds=int(data.get("node_ready_timeout_seconds", 900)),
             node_stop_timeout_seconds=int(data.get("node_stop_timeout_seconds", 900)),
+            warm_pool_namespace=str(data.get("warm_pool_namespace", "xolis-sandboxes")),
+            warm_pool_name=str(data.get("warm_pool_name", "python-basic-v1-pool")),
+            warm_pool_ready_timeout_seconds=int(
+                data.get("warm_pool_ready_timeout_seconds", 300)
+            ),
         )
         config.validate()
         return config
@@ -208,6 +217,7 @@ class AwsLab:
     def service(self) -> None:
         started_at = dt.datetime.now(dt.timezone.utc)
         status = "passed"
+        failure: BaseException | None = None
         try:
             with self.phase("node_start"):
                 self.start_node()
@@ -223,28 +233,190 @@ class AwsLab:
                 )
             with self.phase("service_acceptance"):
                 self.require_file(self.config.service_test_script)
-                self.runner.run(
-                    (
-                        "python3",
-                        str(self.config.service_test_script),
-                        "--report",
-                        str(self.run_directory / "service-smoke-metrics.json"),
-                    )
+                self.run_service_smoke(
+                    self.run_directory / "service-smoke-metrics.json"
                 )
             with self.phase("resource_snapshot"):
                 self.snapshot_service_resources()
         except BaseException:
             status = "failed"
-            raise
-        finally:
-            try:
-                with self.phase("node_stop"):
-                    self.stop_node()
-            except BaseException:
-                status = "failed"
-                raise
-            finally:
-                self.write_workflow_report("service", status, started_at)
+            failure = sys.exception()
+        try:
+            with self.phase("node_stop"):
+                self.stop_node()
+        except BaseException:
+            status = "failed"
+            if failure is None:
+                failure = sys.exception()
+        self.write_workflow_report("service", status, started_at)
+        if failure is not None:
+            raise failure
+
+    def benchmark(self, iterations: int) -> None:
+        if iterations < 1:
+            raise ValueError("Benchmark iterations must be at least one.")
+        started_at = dt.datetime.now(dt.timezone.utc)
+        status = "passed"
+        failure: BaseException | None = None
+        sample_paths: dict[str, list[Path]] = {"cold": [], "warm": []}
+        try:
+            with self.phase("node_start"):
+                self.start_node()
+            with self.phase("runtime_bootstrap"):
+                self.bootstrap()
+            with self.phase("agent_sandbox_install"):
+                self.require_file(self.config.agent_sandbox_install_script)
+                self.runner.run((str(self.config.agent_sandbox_install_script),))
+            with self.phase("service_deploy"):
+                self.require_directory(self.config.service_manifests_directory)
+                self.runner.run(
+                    ("kubectl", "apply", "-k", str(self.config.service_manifests_directory))
+                )
+            with self.phase("cold_pool_ready"):
+                self.set_warm_pool(0)
+                self.wait_for_warm_pool(0)
+            for index in range(1, iterations + 1):
+                report_path = self.run_directory / f"cold-{index}.json"
+                sample_paths["cold"].append(report_path)
+                with self.phase(f"cold_sample_{index}"):
+                    self.run_service_smoke(report_path, skip_ttl=True)
+            with self.phase("warm_pool_ready"):
+                self.set_warm_pool(1)
+                self.wait_for_warm_pool(1)
+            for index in range(1, iterations + 1):
+                if index > 1:
+                    self.wait_for_warm_pool(1)
+                report_path = self.run_directory / f"warm-{index}.json"
+                sample_paths["warm"].append(report_path)
+                with self.phase(f"warm_sample_{index}"):
+                    self.run_service_smoke(report_path, skip_ttl=True)
+        except BaseException:
+            status = "failed"
+            failure = sys.exception()
+        try:
+            with self.phase("warm_pool_cleanup"):
+                self.set_warm_pool(0)
+                self.wait_for_warm_pool(0)
+        except BaseException:
+            status = "failed"
+            if failure is None:
+                failure = sys.exception()
+        try:
+            with self.phase("node_stop"):
+                self.stop_node()
+        except BaseException:
+            status = "failed"
+            if failure is None:
+                failure = sys.exception()
+        self.write_benchmark_summary(iterations, sample_paths)
+        self.write_workflow_report("benchmark", status, started_at)
+        if failure is not None:
+            raise failure
+
+    def run_service_smoke(self, report_path: Path, *, skip_ttl: bool = False) -> None:
+        self.require_file(self.config.service_test_script)
+        command = [
+            "python3",
+            str(self.config.service_test_script),
+            "--report",
+            str(report_path),
+        ]
+        if skip_ttl:
+            command.append("--skip-ttl")
+        self.runner.run(tuple(command))
+
+    def set_warm_pool(self, replicas: int) -> None:
+        self.runner.run(
+            (
+                "kubectl",
+                "patch",
+                "sandboxwarmpool",
+                self.config.warm_pool_name,
+                "--namespace",
+                self.config.warm_pool_namespace,
+                "--type",
+                "merge",
+                "--patch",
+                json.dumps({"spec": {"replicas": replicas}}, separators=(",", ":")),
+            )
+        )
+
+    def wait_for_warm_pool(self, replicas: int) -> None:
+        deadline = time.monotonic() + self.config.warm_pool_ready_timeout_seconds
+        while True:
+            output = self.runner.run(
+                (
+                    "kubectl",
+                    "get",
+                    "sandboxwarmpool/" + self.config.warm_pool_name,
+                    "--namespace",
+                    self.config.warm_pool_namespace,
+                    "--output",
+                    "json",
+                ),
+                capture_output=True,
+            )
+            if self.runner.dry_run:
+                return
+            pool = json.loads(output)
+            desired = int(pool.get("spec", {}).get("replicas", 0))
+            ready = int(pool.get("status", {}).get("readyReplicas", 0))
+            if desired == replicas and ready == replicas:
+                return
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Timed out waiting for warm pool {self.config.warm_pool_name}: "
+                    f"expected {replicas}, desired {desired}, Ready {ready}."
+                )
+            time.sleep(2)
+
+    def write_benchmark_summary(
+        self, iterations: int, sample_paths: dict[str, list[Path]]
+    ) -> None:
+        modes: dict[str, Any] = {}
+        for mode, paths in sample_paths.items():
+            samples = []
+            for path in paths:
+                if path.is_file():
+                    samples.append(json.loads(path.read_text(encoding="utf-8")))
+            passed_samples = [sample for sample in samples if sample.get("status") == "passed"]
+            modes[mode] = {
+                "sample_files": [path.name for path in paths],
+                "completed_samples": len(samples),
+                "passed_samples": len(passed_samples),
+                "summary": self.summarize_samples(passed_samples),
+            }
+        report = {
+            "schema_version": 1,
+            "workflow": "cold_warm_benchmark",
+            "iterations": iterations,
+            "modes": modes,
+        }
+        path = self.run_directory / "benchmark-summary.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        print(f"Wrote benchmark summary: {path}")
+
+    @staticmethod
+    def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
+        metric_names = sorted(
+            {name for sample in samples for name in sample.get("metrics", {})}
+        )
+        summary: dict[str, Any] = {}
+        for name in metric_names:
+            values = [
+                float(sample["metrics"][name])
+                for sample in samples
+                if name in sample.get("metrics", {})
+            ]
+            summary[name] = {
+                "count": len(values),
+                "minimum": min(values),
+                "mean": round(statistics.fmean(values), 3),
+                "median": round(statistics.median(values), 3),
+                "maximum": max(values),
+            }
+        return summary
 
     @contextlib.contextmanager
     def phase(self, name: str) -> Iterator[None]:
@@ -455,6 +627,9 @@ def parse_args() -> argparse.Namespace:
     cycle.add_argument("action", choices=("run",))
     service = commands.add_parser("service", help="Run the complete Xolis service test.")
     service.add_argument("action", choices=("run",))
+    benchmark = commands.add_parser("benchmark", help="Compare cold and warm sandbox starts.")
+    benchmark.add_argument("action", choices=("run",))
+    benchmark.add_argument("--iterations", type=int, default=3)
     return parser.parse_args()
 
 
@@ -477,6 +652,8 @@ def main() -> int:
             lab.cycle()
         elif args.command == "service":
             lab.service()
+        elif args.command == "benchmark":
+            lab.benchmark(args.iterations)
         return 0
     except (RuntimeError, ValueError, TimeoutError, subprocess.CalledProcessError) as error:
         print(f"ERROR: {error}", file=sys.stderr)

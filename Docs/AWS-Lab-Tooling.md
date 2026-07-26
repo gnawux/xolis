@@ -66,6 +66,7 @@ The xolis_aws_lab.py tool uses a JSON configuration file and supports:
     bootstrap
     cycle run
     service run
+    benchmark run --iterations 3
 
 The infra commands delegate to OpenTofu. The node commands scale only the
 configured sandbox self-managed Auto Scaling group through the AWS Auto Scaling
@@ -187,6 +188,15 @@ Every `service run` writes `workflow-report.json` and
 files capture infrastructure phase durations and sandbox-level Ready, first
 command, cleanup, and TTL timings. Reports are written for failed runs as well
 as successful runs.
+
+After a successful functional run, `benchmark run` compares cold claim creation
+with a one-replica `SandboxWarmPool`. It starts the node and deploys the service
+once, runs the acceptance workload repeatedly without the TTL case, waits for
+the pool to replenish before every warm sample, and returns both the warm pool
+and sandbox ASG to zero. The timestamped artifact directory contains every
+sample plus `benchmark-summary.json` with minimum, mean, median, and maximum
+values. Three iterations are the default; use more samples for publishable
+results.
 
 ## Required Local Dependencies
 

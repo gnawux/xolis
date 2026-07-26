@@ -67,3 +67,16 @@ artifact directory:
 
 Failed runs also write reports and mark the failed phase, which allows repeated
 runs to be compared without parsing console output.
+
+Compare cold claim creation with a one-replica Agent Sandbox warm pool after the
+functional service run is stable:
+
+    python3 tools/xolis_aws_lab.py --config tools/xolis_aws_lab.json \
+        benchmark run --iterations 3
+
+The benchmark starts one sandbox node, deploys the service once, runs the same
+acceptance workload without the TTL case for each cold and warm sample, then
+returns the warm pool and sandbox ASG to zero. It waits for
+`.status.readyReplicas` before every warm sample so replenishment time is not
+mistaken for claim latency. Per-sample JSON files and `benchmark-summary.json`
+record minimum, mean, median, and maximum metrics for both modes.

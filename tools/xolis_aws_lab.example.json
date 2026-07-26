@@ -23,6 +23,9 @@
   "agent_sandbox_install_script": "../deploy/agent-sandbox/install-v0.5.3.sh",
   "service_manifests_directory": "../deploy",
   "service_test_script": "../deploy/tests/smoke_service.py",
+  "warm_pool_namespace": "xolis-sandboxes",
+  "warm_pool_name": "python-basic-v1-pool",
+  "warm_pool_ready_timeout_seconds": 300,
   "artifact_directory": "../artifacts/aws-lab",
   "node_ready_timeout_seconds": 900,
   "node_stop_timeout_seconds": 900

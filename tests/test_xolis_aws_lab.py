@@ -132,6 +132,70 @@ class DryRunTests(unittest.TestCase):
             self.assertEqual(report["status"], "failed")
             self.assertEqual(report["phases"][1]["status"], "failed")
 
+    def test_benchmark_dry_run_executes_cold_and_warm_samples(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config = MODULE.LabConfig.load(self.make_config(Path(temporary_directory)))
+            lab = MODULE.AwsLab(config, dry_run=True)
+
+            lab.benchmark(2)
+
+            log = (lab.run_directory / "commands.log").read_text(encoding="utf-8")
+            self.assertEqual(log.count("smoke_service.py"), 4)
+            self.assertIn("cold-1.json --skip-ttl", log)
+            self.assertIn("warm-2.json --skip-ttl", log)
+            self.assertIn('"replicas":1', log)
+            self.assertIn("kubectl get sandboxwarmpool/python-basic-v1-pool", log)
+            summary = json.loads(
+                (lab.run_directory / "benchmark-summary.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(summary["iterations"], 2)
+            self.assertEqual(summary["modes"]["cold"]["sample_files"], ["cold-1.json", "cold-2.json"])
+
+    def test_benchmark_stops_node_when_warm_pool_cleanup_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config = MODULE.LabConfig.load(self.make_config(Path(temporary_directory)))
+            lab = MODULE.AwsLab(config, dry_run=True)
+            lab.start_node = mock.Mock()
+            lab.bootstrap = mock.Mock()
+            lab.run_service_smoke = mock.Mock()
+            lab.snapshot_service_resources = mock.Mock()
+            lab.set_warm_pool = mock.Mock(
+                side_effect=[None, None, RuntimeError("warm cleanup failed")]
+            )
+            lab.wait_for_warm_pool = mock.Mock()
+            lab.stop_node = mock.Mock()
+
+            with self.assertRaisesRegex(RuntimeError, "warm cleanup failed"):
+                lab.benchmark(1)
+
+            lab.stop_node.assert_called_once_with()
+            report = json.loads(
+                (lab.run_directory / "workflow-report.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(report["status"], "failed")
+
+
+class BenchmarkSummaryTests(unittest.TestCase):
+    def test_summary_calculates_distribution_for_each_metric(self) -> None:
+        summary = MODULE.AwsLab.summarize_samples(
+            [
+                {"metrics": {"sandbox_ready_seconds": 3.0}},
+                {"metrics": {"sandbox_ready_seconds": 1.0}},
+                {"metrics": {"sandbox_ready_seconds": 2.0}},
+            ]
+        )
+
+        self.assertEqual(
+            summary["sandbox_ready_seconds"],
+            {
+                "count": 3,
+                "minimum": 1.0,
+                "mean": 2.0,
+                "median": 2.0,
+                "maximum": 3.0,
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
