@@ -124,6 +124,7 @@ def build_commands(
                 f"tar -xzf /opt/{archive} -C /opt",
                 "install -m 0755 /opt/nydus-static/nydus-image /usr/local/bin/nydus-image",
                 "install -m 0755 /opt/nydus-static/nydusify /usr/local/bin/nydusify",
+                "install -m 0755 /opt/nydus-static/nydusd /usr/local/bin/nydusd",
             ]
         )
         for local_name in nydus_images:

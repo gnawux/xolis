@@ -31,6 +31,7 @@ class BuildCommandTests(unittest.TestCase):
         self.assertIn("xolis/sandbox-router:build-123", script)
         self.assertEqual(script.count("docker push"), 4)
         self.assertIn("nydusify convert", script)
+        self.assertIn("/usr/local/bin/nydusd", script)
         self.assertIn("xolis/xolis-runtime-hermes:build-123-nydus", script)
         self.assertIn(MODULE.NYDUS_ARCHIVE_SHA256, script)
 
