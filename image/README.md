@@ -32,5 +32,8 @@ Build only Hermes and publish both ordinary OCI and Nydus-formatted tags:
         --nydus xolis-runtime-hermes
 
 The builder downloads Nydus `v2.4.4` with a pinned SHA-256 checksum, converts
-the pushed OCI image with `nydusify`, checks the converted root filesystem
-against its OCI source, and returns immutable digest references for both modes.
+the pushed OCI image with `nydusify`, checks the converted manifest and RAFS
+bootstrap, and returns immutable digest references for both modes. Runtime and
+file-content validation is performed on the Nydus-enabled sandbox node; a
+source/target mount comparison on the SELinux-enabled builder reports host-added
+`security.selinux` xattrs that are not part of the independent Nydus mount.

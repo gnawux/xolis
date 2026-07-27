@@ -135,8 +135,8 @@ def build_commands(
                 [
                     f"echo 'Converting {local_name} to Nydus format'",
                     f"nydusify convert --source {source} --target {target}",
-                    f"echo 'Checking {local_name} Nydus root filesystem'",
-                    f"nydusify check --source {source} --target {target}",
+                    f"echo 'Checking {local_name} Nydus manifest and bootstrap'",
+                    f"nydusify check --target {target}",
                 ]
             )
     return commands
