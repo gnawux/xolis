@@ -39,7 +39,7 @@ class HermesProfileTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("846b14ab01a84483d2c3dd429579173040474585", dockerfile)
-        self.assertIn("python:3.13-slim", dockerfile)
+        self.assertIn("python:3.12-slim", dockerfile)
         self.assertIn("pip install --no-cache-dir --editable /opt/hermes-agent .", dockerfile)
         self.assertIn("rev-parse HEAD", dockerfile)
         self.assertNotIn("API_KEY=", dockerfile)

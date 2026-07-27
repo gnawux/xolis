@@ -108,7 +108,7 @@ def build_commands(
         commands.extend(
             [
                 f"echo 'Building {local_name}'",
-                f"docker build --quiet --pull --file {dockerfile} --tag {local_name}:{tag} .",
+                f"docker build --pull --file {dockerfile} --tag {local_name}:{tag} .",
                 f"docker tag {local_name}:{tag} {reference}",
                 f"echo 'Pushing {local_name}'",
                 f"docker push --quiet {reference}",
