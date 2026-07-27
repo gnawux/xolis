@@ -91,30 +91,35 @@ def build_commands(
         raise ValueError("Nydus images must also be selected as OCI images")
 
     commands = [
-        "set -euxo pipefail",
-        "dnf install -y docker",
+        "set -euo pipefail",
+        "echo 'Installing the container build runtime'",
+        "dnf install -q -y docker",
         "systemctl enable --now docker",
         "rm -rf /opt/xolis-build && mkdir -p /opt/xolis-build",
-        f"curl --fail --location {shell_quote(source_url)} --output /opt/xolis-source.tar.gz",
+        "echo 'Downloading the committed source archive'",
+        f"curl --fail --silent --show-error --location {shell_quote(source_url)} --output /opt/xolis-source.tar.gz",
         "tar -xzf /opt/xolis-source.tar.gz -C /opt/xolis-build",
         "cd /opt/xolis-build",
-        f"aws ecr get-login-password | docker login --username AWS --password-stdin {registry}",
+        f"aws ecr get-login-password | docker login --username AWS --password-stdin {registry} >/dev/null",
     ]
     for local_name in images:
         repository, dockerfile = REPOSITORIES[local_name]
         reference = f"{registry}/{repository}:{tag}"
         commands.extend(
             [
-                f"docker build --pull --file {dockerfile} --tag {local_name}:{tag} .",
+                f"echo 'Building {local_name}'",
+                f"docker build --quiet --pull --file {dockerfile} --tag {local_name}:{tag} .",
                 f"docker tag {local_name}:{tag} {reference}",
-                f"docker push {reference}",
+                f"echo 'Pushing {local_name}'",
+                f"docker push --quiet {reference}",
             ]
         )
     if nydus_images:
         archive = f"nydus-static-v{NYDUS_VERSION}-linux-amd64.tgz"
         commands.extend(
             [
-                f"curl --fail --location https://github.com/dragonflyoss/nydus/releases/download/v{NYDUS_VERSION}/{archive} --output /opt/{archive}",
+                "echo 'Installing the pinned Nydus conversion tools'",
+                f"curl --fail --silent --show-error --location https://github.com/dragonflyoss/nydus/releases/download/v{NYDUS_VERSION}/{archive} --output /opt/{archive}",
                 f"echo '{NYDUS_ARCHIVE_SHA256}  /opt/{archive}' | sha256sum --check --strict",
                 f"tar -xzf /opt/{archive} -C /opt",
                 "install -m 0755 /opt/nydus-static/nydus-image /usr/local/bin/nydus-image",
@@ -127,7 +132,9 @@ def build_commands(
             target = f"{registry}/{repository}:{tag}-nydus"
             commands.extend(
                 [
+                    f"echo 'Converting {local_name} to Nydus format'",
                     f"nydusify convert --source {source} --target {target}",
+                    f"echo 'Checking {local_name} Nydus root filesystem'",
                     f"nydusify check --source {source} --target {target}",
                 ]
             )
