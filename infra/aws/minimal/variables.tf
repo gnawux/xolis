@@ -18,7 +18,7 @@ variable "name" {
 variable "kubernetes_version" {
   description = "Supported Amazon EKS Kubernetes version selected for the lab."
   type        = string
-  default     = "1.32"
+  default     = "1.35"
 }
 
 variable "vpc_cidr" {

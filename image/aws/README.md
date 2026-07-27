@@ -2,7 +2,12 @@
 
 This Packer build creates an immutable sandbox-node AMI from an EKS-optimized Amazon Linux 2023 AMI. It installs pinned Kata Containers, adds the `xolis-kata` containerd runtime handler, and can optionally install the Nydus snapshotter service. The Kata static artifact provides guest kernel and root filesystem assets; the build separately compiles Kata 4 `runtime-rs` with its built-in Dragonball VMM from a fixed source commit. The builder uses an M8i instance because the current AWS nested-virtualization capability requires a supported generation-eight Intel family.
 
-The base AMI must match the Kubernetes version configured in `infra/aws/minimal`. Do not run `nodeadm` during the build. The self-managed ASG launch template supplies the EKS NodeConfig when it starts an instance.
+The preferred base AMI matches the Kubernetes version configured in
+`infra/aws/minimal`. The currently validated Kata AMI uses the EKS 1.32 base and
+remains within the supported three-minor kubelet skew of the EKS 1.35 control
+plane; rebuild it from the EKS 1.35 base before upgrading the control plane
+beyond 1.35. Do not run `nodeadm` during the build. The self-managed ASG launch
+template supplies the EKS NodeConfig when it starts an instance.
 
 The builder connects through AWS Systems Manager Session Manager, not a public SSH rule. Install the AWS Session Manager Plugin and make `session-manager-plugin` available on `PATH` before running Packer. Packer creates and removes a temporary instance profile with only the Systems Manager permissions required for the build.
 

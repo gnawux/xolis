@@ -11,6 +11,12 @@ This OpenTofu root creates the persistent infrastructure for the first Xolis AWS
 - A no-ingress security group and least-privilege instance profile for
   temporary, SSM-managed image build instances.
 
+The checked-in baseline uses EKS 1.35, which remains in standard support until
+2027-03-27. Do not select an EKS version in extended support for a persistent
+lab because its control-plane hourly charge is substantially higher. The cluster
+upgrade policy is set to `STANDARD` so the lab does not intentionally remain on
+an expired release and incur extended-support pricing.
+
 The public-subnet layout intentionally avoids a NAT gateway during early
 experiments. It is not a production network design. Set `sandbox_ami_id` to the
 versioned custom Kata AMI built from `image/aws`. The validated baseline does not

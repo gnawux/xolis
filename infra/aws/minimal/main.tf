@@ -126,6 +126,10 @@ resource "aws_eks_cluster" "this" {
     authentication_mode = "API_AND_CONFIG_MAP"
   }
 
+  upgrade_policy {
+    support_type = "STANDARD"
+  }
+
   depends_on = [aws_iam_role_policy_attachment.cluster]
 }
 

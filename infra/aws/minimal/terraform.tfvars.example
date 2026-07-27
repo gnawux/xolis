@@ -3,7 +3,7 @@
 
 region              = "ap-northeast-1"
 name                = "xolis-lab"
-kubernetes_version  = "1.32"
+kubernetes_version  = "1.35"
 admin_principal_arn = "arn:aws:iam::123456789012:role/aws-reserved/sso.amazonaws.com/ap-northeast-1/AWSReservedSSO_AdministratorAccess_example"
 owner               = "your-name"
 
