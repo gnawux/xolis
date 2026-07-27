@@ -7,11 +7,13 @@ kubectl kustomize "${repository_root}/deploy" >/dev/null
 
 for manifest in \
     bootstrap/xolis-runtime.yaml \
+    bootstrap/xolis-runtime-nydus.yaml \
     xolis/namespaces.yaml \
     xolis/api-rbac.yaml \
     xolis/api.yaml \
     xolis/router-rbac.yaml \
     xolis/router.yaml \
+    xolis/python-profile-nydus.yaml \
     xolis/network-policies.yaml
 do
     kubectl create --dry-run=client --validate=false \

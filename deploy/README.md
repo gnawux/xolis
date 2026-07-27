@@ -49,3 +49,21 @@ The smoke Pod proves the basic RuntimeClass and Kata scheduling path. It does
 not validate Nydus image lazy loading. The full service validation creates a
 claim through `xolis-api`, executes Python, transfers files, checks policy
 rejections, and verifies TTL and explicit cleanup.
+
+## Optional Nydus Evaluation Profile
+
+The default `deploy` kustomization remains the validated ordinary-OCI path. An
+AMI built with all three `NYDUS_*` Packer variables also installs and enables
+the Nydus snapshotter and records its pinned version in
+`/etc/xolis/nydus-version`.
+
+Apply the opt-in overlay only with that AMI:
+
+    kubectl apply -k deploy
+    kubectl apply -f deploy/bootstrap/xolis-runtime-nydus.yaml
+    kubectl apply -f deploy/xolis/python-profile-nydus.yaml
+
+The opt-in add-on adds `RuntimeClass/xolis-kata-nydus`,
+`SandboxTemplate/python-nydus-v1`, and a zero-replica Nydus warm pool. It does
+not modify `RuntimeClass/xolis-kata` or `SandboxTemplate/python-basic-v1`, so an
+operator can return to ordinary OCI without rebuilding the service stack.

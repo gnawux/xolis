@@ -3,3 +3,12 @@
 
   [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata.options]
     ConfigPath = "/etc/kata-containers/configuration-xolis-dragonball.toml"
+
+# Opt-in handler for Nydus evaluation. The ordinary xolis-kata handler remains
+# the default and continues to use containerd's native snapshotter.
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata-nydus]
+  runtime_type = "io.containerd.kata.v2"
+  snapshotter = "nydus"
+
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata-nydus.options]
+    ConfigPath = "/etc/kata-containers/configuration-xolis-dragonball.toml"

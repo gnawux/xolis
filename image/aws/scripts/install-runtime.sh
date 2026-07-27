@@ -246,6 +246,9 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
   systemctl enable nydus-snapshotter.service
+
+  install -d -m 0755 /etc/xolis
+  printf '%s\n' "${NYDUS_VERSION}" >/etc/xolis/nydus-version
 fi
 
 systemctl daemon-reload
@@ -259,4 +262,5 @@ grep -q '^\[hypervisor\.dragonball\]' /etc/kata-containers/configuration-xolis-d
 test -x /usr/local/sbin/xolis-enable-containerd-import
 if (( nydus_variable_count == ${#nydus_variables[@]} )); then
   nydus-snapshotter --version
+  test -f /etc/xolis/nydus-version
 fi

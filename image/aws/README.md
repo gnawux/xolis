@@ -66,4 +66,12 @@ baseline; its performance path is a separate follow-up.
 
 ## Validation Boundary
 
-The smoke test uses `RuntimeClass/xolis-kata`, which selects the `xolis-kata` handler. The initial build uses an ordinary OCI image and does not require Nydus. Add a pinned Nydus artifact and Nydus-formatted image only after the Kata execution path is stable.
+The smoke test uses `RuntimeClass/xolis-kata`, which selects the ordinary
+`xolis-kata` handler. Supplying all three pinned Nydus inputs additionally
+installs the snapshotter, registers `xolis-kata-nydus`, and records the pinned
+version in `/etc/xolis/nydus-version`. It does not change the ordinary handler.
+
+The Nydus profile must use an image that includes Nydus bootstrap metadata.
+Merely selecting the Nydus handler does not convert an ordinary OCI image. Keep
+the digest-pinned OCI image as the fallback while publishing and validating a
+separately tagged Nydus image for `python-nydus-v1`.
