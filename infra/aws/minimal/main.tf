@@ -371,6 +371,7 @@ resource "aws_iam_role_policy" "image_builder_ecr" {
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
           "ecr:CompleteLayerUpload",
           "ecr:DescribeImages",
           "ecr:GetDownloadUrlForLayer",
