@@ -67,3 +67,12 @@ The opt-in add-on adds `RuntimeClass/xolis-kata-nydus`,
 `SandboxTemplate/python-nydus-v1`, and a zero-replica Nydus warm pool. It does
 not modify `RuntimeClass/xolis-kata` or `SandboxTemplate/python-basic-v1`, so an
 operator can return to ordinary OCI without rebuilding the service stack.
+
+## Optional Hermes Agent Profile
+
+The Hermes evaluation uses a separate Python 3.13 image and a zero-replica
+profile. Build the image, render `xolis/hermes-profile.yaml.in` with
+`tools/render_hermes_profile.py`, and apply only the rendered output. The
+renderer requires an immutable private ECR digest. See
+`Docs/demos/Hermes-Agent-Demo.md` for credential, egress, interactive session,
+and cleanup requirements. The profile is not part of the default kustomization.

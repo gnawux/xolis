@@ -23,6 +23,10 @@ REPOSITORIES = {
         "xolis/xolis-runtime-python",
         "image/xolis-runtime-python/Dockerfile",
     ),
+    "xolis-runtime-hermes": (
+        "xolis/xolis-runtime-hermes",
+        "image/xolis-runtime-hermes/Dockerfile",
+    ),
     "sandbox-router-go": ("xolis/sandbox-router", "image/sandbox-router/Dockerfile"),
 }
 TERMINAL_COMMAND_STATES = {"Success", "Cancelled", "Failed", "TimedOut"}
@@ -300,6 +304,25 @@ class ImageBuilder:
     def cleanup(self) -> None:
         if self.instance_id and not self.config.keep_instance:
             self.aws.run(["ec2", "terminate-instances", "--instance-ids", self.instance_id])
+            self.aws.run(
+                ["ec2", "wait", "instance-terminated", "--instance-ids", self.instance_id]
+            )
+            state = self.aws.run(
+                [
+                    "ec2",
+                    "describe-instances",
+                    "--instance-ids",
+                    self.instance_id,
+                    "--query",
+                    "Reservations[0].Instances[0].State.Name",
+                    "--output",
+                    "text",
+                ]
+            )
+            if state != "terminated":
+                raise RuntimeError(
+                    f"image builder {self.instance_id} cleanup ended in state {state}"
+                )
         if self.source_uri:
             self.aws.run(["s3", "rm", self.source_uri, "--only-show-errors"])
 

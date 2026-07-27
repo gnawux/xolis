@@ -4,12 +4,14 @@ All Dockerfiles use the repository root as their build context:
 
     docker build -f image/xolis-api/Dockerfile -t xolis-api:dev .
     docker build -f image/xolis-runtime-python/Dockerfile -t xolis-runtime-python:dev .
+    docker build -f image/xolis-runtime-hermes/Dockerfile -t xolis-runtime-hermes:dev .
     docker build -f image/sandbox-router/Dockerfile -t sandbox-router-go:v0.5.3 .
 
-The router build fetches the commit behind Agent Sandbox `v0.5.3` and verifies
-the full commit ID before compiling. Release automation must push all three
-images to private ECR and replace the development image references in the
-Kustomize output with immutable digest references before deployment.
+The Hermes image pins an upstream Hermes Agent commit and remains separate from
+the default Python runtime. The router build fetches the commit behind Agent
+Sandbox `v0.5.3` and verifies the full commit ID before compiling. Release
+automation must push all images to private ECR and use immutable digest
+references before deployment.
 
 For the AWS lab, apply `infra/aws/minimal` once to create the repositories and
 temporary-builder instance profile. Then build all AMD64 images on an ephemeral

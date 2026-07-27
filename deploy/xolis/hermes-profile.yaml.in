@@ -1,0 +1,123 @@
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxTemplate
+metadata:
+  name: hermes-agent-v1
+  namespace: xolis-sandboxes
+  labels:
+    app.kubernetes.io/part-of: xolis
+    xolis.io/profile: hermes-agent-v1
+spec:
+  networkPolicyManagement: Managed
+  networkPolicy:
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: xolis-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: sandbox-router
+        ports:
+          - protocol: TCP
+            port: 8888
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+  podTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xolis-runtime-hermes
+        app.kubernetes.io/part-of: xolis
+        xolis.io/profile: hermes-agent-v1
+    spec:
+      runtimeClassName: xolis-kata
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: hermes-runtime
+          image: __HERMES_IMAGE_REFERENCE__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: HOME
+              value: /workspace
+            - name: HERMES_HOME
+              value: /workspace/.hermes
+            - name: XOLIS_WORKSPACE
+              value: /workspace
+            - name: XOLIS_MAXIMUM_COMMAND_TIMEOUT_SECONDS
+              value: "900"
+            - name: XOLIS_MAXIMUM_OUTPUT_BYTES
+              value: "4194304"
+            - name: XOLIS_MAXIMUM_UPLOAD_BYTES
+              value: "10485760"
+          envFrom:
+            - secretRef:
+                name: hermes-agent-credentials
+          ports:
+            - name: runtime
+              containerPort: 8888
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: runtime
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: runtime
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+              ephemeral-storage: 8Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: workspace
+          emptyDir:
+            sizeLimit: 4Gi
+        - name: temporary
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxWarmPool
+metadata:
+  name: hermes-agent-v1-pool
+  namespace: xolis-sandboxes
+  labels:
+    app.kubernetes.io/part-of: xolis
+    xolis.io/profile: hermes-agent-v1
+spec:
+  replicas: 0
+  sandboxTemplateRef:
+    name: hermes-agent-v1

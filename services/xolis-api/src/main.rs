@@ -34,8 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|value| value.parse())
         .transpose()?
         .unwrap_or(10 * 1024 * 1024);
+    let profile = env::var("XOLIS_PROFILE").unwrap_or_else(|_| "python-basic-v1".to_owned());
 
     let config = AppConfig {
+        profile,
         maximum_ttl_seconds,
         maximum_command_timeout_seconds,
         maximum_upload_bytes,

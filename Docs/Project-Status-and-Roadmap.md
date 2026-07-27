@@ -184,10 +184,13 @@ Expected outcome:
 
 ### Priority 1: Streaming and Interactive Agent Workloads
 
-Add streaming command output, cancellation, an interactive terminal protocol,
-and optionally controlled port forwarding or inbound application services.
-Use the streaming and interactive contract for a bounded Hermes Agent demo,
-without coupling the general runtime API to one agent implementation.
+The local implementation now includes backward-compatible SSE command
+streaming and a tenant-scoped WebSocket/PTTY protocol with input, resize,
+cancel, close, TTL, output bounds, and process-group cleanup. An opt-in Hermes
+Agent image and profile template use those general primitives without changing
+the default Python profile. Building the Hermes image, adding provider-specific
+FQDN egress, and running the documented fresh-sandbox demo remain deployment
+validation work.
 
 Expected outcome:
 

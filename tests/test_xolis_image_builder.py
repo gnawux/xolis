@@ -23,8 +23,9 @@ class BuildCommandTests(unittest.TestCase):
         self.assertIn("systemctl enable --now docker", script)
         self.assertIn("xolis/xolis-api:build-123", script)
         self.assertIn("xolis/xolis-runtime-python:build-123", script)
+        self.assertIn("xolis/xolis-runtime-hermes:build-123", script)
         self.assertIn("xolis/sandbox-router:build-123", script)
-        self.assertEqual(script.count("docker push"), 3)
+        self.assertEqual(script.count("docker push"), 4)
 
     def test_invalid_registry_and_tag_are_rejected(self) -> None:
         with self.assertRaises(ValueError):

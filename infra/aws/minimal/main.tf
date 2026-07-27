@@ -297,6 +297,7 @@ locals {
   image_repositories = toset([
     "xolis/xolis-api",
     "xolis/xolis-runtime-python",
+    "xolis/xolis-runtime-hermes",
     "xolis/sandbox-router",
   ])
 }
