@@ -19,6 +19,7 @@ image/aws/*.pkrvars.hcl
 artifacts/
 tools/xolis_aws_lab.json
 /.codex-tmp/
+*.pptx.inspect.ndjson
 tmp/
 env/
 ENV/
