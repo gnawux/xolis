@@ -23,3 +23,14 @@ EC2 instance and print their digest references:
 The tool sends commands through Systems Manager, opens no inbound ports, and
 terminates the instance after the images are pushed. Use `--keep-instance`
 only for interactive diagnostics and terminate the instance manually afterward.
+
+Build only Hermes and publish both ordinary OCI and Nydus-formatted tags:
+
+    python3 tools/xolis_image_builder.py \
+        --source-bucket xolis-lab-tfstate-ACCOUNT-apne1 \
+        --image xolis-runtime-hermes \
+        --nydus xolis-runtime-hermes
+
+The builder downloads Nydus `v2.4.4` with a pinned SHA-256 checksum, converts
+the pushed OCI image with `nydusify`, checks the converted root filesystem
+against its OCI source, and returns immutable digest references for both modes.

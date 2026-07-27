@@ -1,11 +1,12 @@
 apiVersion: extensions.agents.x-k8s.io/v1beta1
 kind: SandboxTemplate
 metadata:
-  name: hermes-agent-v1
+  name: __HERMES_PROFILE__
   namespace: xolis-sandboxes
   labels:
     app.kubernetes.io/part-of: xolis
-    xolis.io/profile: hermes-agent-v1
+    xolis.io/profile: __HERMES_PROFILE__
+    xolis.io/image-mode: __IMAGE_MODE__
 spec:
   networkPolicyManagement: Managed
   networkPolicy:
@@ -35,9 +36,10 @@ spec:
       labels:
         app.kubernetes.io/name: xolis-runtime-hermes
         app.kubernetes.io/part-of: xolis
-        xolis.io/profile: hermes-agent-v1
+        xolis.io/profile: __HERMES_PROFILE__
+        xolis.io/image-mode: __IMAGE_MODE__
     spec:
-      runtimeClassName: xolis-kata
+      runtimeClassName: __RUNTIME_CLASS__
       automountServiceAccountToken: false
       restartPolicy: OnFailure
       terminationGracePeriodSeconds: 5
@@ -112,12 +114,13 @@ spec:
 apiVersion: extensions.agents.x-k8s.io/v1beta1
 kind: SandboxWarmPool
 metadata:
-  name: hermes-agent-v1-pool
+  name: __HERMES_PROFILE__-pool
   namespace: xolis-sandboxes
   labels:
     app.kubernetes.io/part-of: xolis
-    xolis.io/profile: hermes-agent-v1
+    xolis.io/profile: __HERMES_PROFILE__
+    xolis.io/image-mode: __IMAGE_MODE__
 spec:
   replicas: 0
   sandboxTemplateRef:
-    name: hermes-agent-v1
+    name: __HERMES_PROFILE__

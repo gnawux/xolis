@@ -24,6 +24,12 @@ class HermesProfileTests(unittest.TestCase):
         self.assertNotIn("__HERMES_IMAGE_REFERENCE__", rendered)
         self.assertIn("name: hermes-agent-credentials", rendered)
         self.assertIn("replicas: 0", rendered)
+        self.assertIn("runtimeClassName: xolis-kata", rendered)
+
+        nydus = MODULE.render(reference, ROOT, "nydus")
+        self.assertIn("name: hermes-agent-nydus-v1", nydus)
+        self.assertIn("runtimeClassName: xolis-kata-nydus", nydus)
+        self.assertIn("xolis.io/image-mode: nydus", nydus)
 
         with self.assertRaises(ValueError):
             MODULE.render("docker.io/xolis-runtime-hermes:latest", ROOT)

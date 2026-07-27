@@ -29,6 +29,8 @@ REPOSITORIES = {
     ),
     "sandbox-router-go": ("xolis/sandbox-router", "image/sandbox-router/Dockerfile"),
 }
+NYDUS_VERSION = "2.4.4"
+NYDUS_ARCHIVE_SHA256 = "e95a0d1984ef507c0cf4c7766a9cde8433215e1007556e03d4cc211725c68c59"
 TERMINAL_COMMAND_STATES = {"Success", "Cancelled", "Failed", "TimedOut"}
 
 
@@ -40,6 +42,8 @@ class BuilderConfig:
     source_bucket: str
     instance_type: str
     repository_root: Path
+    images: tuple[str, ...]
+    nydus_images: tuple[str, ...]
     keep_instance: bool
     timeout_seconds: int
 
@@ -69,11 +73,22 @@ def require_executables() -> None:
         raise RuntimeError(f"required executables are missing: {', '.join(missing)}")
 
 
-def build_commands(source_url: str, registry: str, tag: str) -> list[str]:
+def build_commands(
+    source_url: str,
+    registry: str,
+    tag: str,
+    images: Sequence[str],
+    nydus_images: Sequence[str],
+) -> list[str]:
     if not re.fullmatch(r"[a-zA-Z0-9._-]+", tag):
         raise ValueError("image tag contains unsupported characters")
     if not re.fullmatch(r"[0-9]+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com", registry):
         raise ValueError("registry is not a private Amazon ECR hostname")
+    unknown = (set(images) | set(nydus_images)) - REPOSITORIES.keys()
+    if unknown:
+        raise ValueError(f"unknown image names: {', '.join(sorted(unknown))}")
+    if not set(nydus_images).issubset(images):
+        raise ValueError("Nydus images must also be selected as OCI images")
 
     commands = [
         "set -euxo pipefail",
@@ -85,7 +100,8 @@ def build_commands(source_url: str, registry: str, tag: str) -> list[str]:
         "cd /opt/xolis-build",
         f"aws ecr get-login-password | docker login --username AWS --password-stdin {registry}",
     ]
-    for local_name, (repository, dockerfile) in REPOSITORIES.items():
+    for local_name in images:
+        repository, dockerfile = REPOSITORIES[local_name]
         reference = f"{registry}/{repository}:{tag}"
         commands.extend(
             [
@@ -94,6 +110,27 @@ def build_commands(source_url: str, registry: str, tag: str) -> list[str]:
                 f"docker push {reference}",
             ]
         )
+    if nydus_images:
+        archive = f"nydus-static-v{NYDUS_VERSION}-linux-amd64.tgz"
+        commands.extend(
+            [
+                f"curl --fail --location https://github.com/dragonflyoss/nydus/releases/download/v{NYDUS_VERSION}/{archive} --output /opt/{archive}",
+                f"echo '{NYDUS_ARCHIVE_SHA256}  /opt/{archive}' | sha256sum --check --strict",
+                f"tar -xzf /opt/{archive} -C /opt",
+                "install -m 0755 /opt/nydus-static/nydus-image /usr/local/bin/nydus-image",
+                "install -m 0755 /opt/nydus-static/nydusify /usr/local/bin/nydusify",
+            ]
+        )
+        for local_name in nydus_images:
+            repository, _ = REPOSITORIES[local_name]
+            source = f"{registry}/{repository}:{tag}"
+            target = f"{registry}/{repository}:{tag}-nydus"
+            commands.extend(
+                [
+                    f"nydusify convert --source {source} --target {target}",
+                    f"nydusify check --source {source} --target {target}",
+                ]
+            )
     return commands
 
 
@@ -241,7 +278,17 @@ class ImageBuilder:
                 "--timeout-seconds",
                 str(self.config.timeout_seconds),
                 "--parameters",
-                json.dumps({"commands": build_commands(source_url, registry, tag)}),
+                json.dumps(
+                    {
+                        "commands": build_commands(
+                            source_url,
+                            registry,
+                            tag,
+                            self.config.images,
+                            self.config.nydus_images,
+                        )
+                    }
+                ),
             ],
             json_output=True,
         )
@@ -282,7 +329,13 @@ class ImageBuilder:
 
     def image_references(self, tag: str) -> dict[str, str]:
         references = {}
-        for local_name, (repository, _) in REPOSITORIES.items():
+        image_tags = [(name, tag) for name in self.config.images]
+        image_tags.extend(
+            (f"{name}-nydus", f"{tag}-nydus") for name in self.config.nydus_images
+        )
+        for output_name, image_tag in image_tags:
+            repository_name = output_name.removesuffix("-nydus")
+            repository, _ = REPOSITORIES[repository_name]
             image = self.aws.run(
                 [
                     "ecr",
@@ -290,12 +343,12 @@ class ImageBuilder:
                     "--repository-name",
                     repository,
                     "--image-ids",
-                    f"imageTag={tag}",
+                    f"imageTag={image_tag}",
                 ],
                 json_output=True,
             )["imageDetails"][0]
             registry = image["registryId"]
-            references[local_name] = (
+            references[output_name] = (
                 f"{registry}.dkr.ecr.{self.config.region}.amazonaws.com/"
                 f"{repository}@{image['imageDigest']}"
             )
@@ -334,6 +387,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cluster-name", default="xolis-lab")
     parser.add_argument("--source-bucket", required=True)
     parser.add_argument("--instance-type", default="c6i.xlarge")
+    parser.add_argument(
+        "--image",
+        action="append",
+        choices=sorted(REPOSITORIES),
+        dest="images",
+        help="image to build; repeat for multiple images (default: all)",
+    )
+    parser.add_argument(
+        "--nydus",
+        action="append",
+        choices=sorted(REPOSITORIES),
+        dest="nydus_images",
+        default=[],
+        help="selected image to additionally convert to Nydus format",
+    )
     parser.add_argument("--keep-instance", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=3600)
     return parser.parse_args()
@@ -341,6 +409,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    images = tuple(args.images or REPOSITORIES)
+    nydus_images = tuple(args.nydus_images)
+    if not set(nydus_images).issubset(images):
+        print("error: every --nydus image must also be selected with --image", file=sys.stderr)
+        return 2
     repository_root = Path(__file__).resolve().parents[1]
     config = BuilderConfig(
         profile=args.profile,
@@ -349,6 +422,8 @@ def main() -> int:
         source_bucket=args.source_bucket,
         instance_type=args.instance_type,
         repository_root=repository_root,
+        images=images,
+        nydus_images=nydus_images,
         keep_instance=args.keep_instance,
         timeout_seconds=args.timeout_seconds,
     )

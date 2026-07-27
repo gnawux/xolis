@@ -8,12 +8,17 @@ time of evaluation).
 ## Prepare the Profile
 
 Build and publish the images with `tools/xolis_image_builder.py`. Take the
-immutable `xolis-runtime-hermes` reference from its JSON output and render the
-profile:
+immutable `xolis-runtime-hermes` and `xolis-runtime-hermes-nydus` references
+from its JSON output and render the profiles:
 
     python3 tools/render_hermes_profile.py \
         --image-reference ACCOUNT.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:DIGEST \
         > /tmp/hermes-profile.yaml
+
+    python3 tools/render_hermes_profile.py \
+        --image-mode nydus \
+        --image-reference ACCOUNT.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:NYDUS_DIGEST \
+        > /tmp/hermes-nydus-profile.yaml
 
 Create `Secret/hermes-agent-credentials` in `xolis-sandboxes` with only the
 provider variables required for the selected model. Never store that Secret or
@@ -25,7 +30,9 @@ traffic. Before the demo, add a reviewed CNI policy that allows TCP 443 only to
 the selected provider endpoints. Do not use an unrestricted Internet egress
 rule. Then apply the rendered profile and configure `xolis-api` to use
 `XOLIS_PROFILE=hermes-agent-v1`, `XOLIS_WARM_POOL=hermes-agent-v1-pool`, and a
-command timeout of at least 900 seconds.
+command timeout of at least 900 seconds. For Nydus, use
+`hermes-agent-nydus-v1`, `hermes-agent-nydus-v1-pool`, and install the opt-in
+`xolis-kata-nydus` RuntimeClass before applying the profile.
 
 ## Run the Demo
 
