@@ -133,7 +133,7 @@ Expected improvements below are engineering hypotheses or initial targets. They
 must be confirmed by controlled repeated tests before they become project
 claims.
 
-### Priority 0: Harden the Performance and Reliability Baseline
+### Deferred Until a Larger Cluster: Harden the Performance and Reliability Baseline
 
 Run at least 20 to 30 cold and warm samples under controlled conditions and add
 p50, p95, and p99 reporting. Record AMI ID, instance type, image digest, node
@@ -186,6 +186,8 @@ Expected outcome:
 
 Add streaming command output, cancellation, an interactive terminal protocol,
 and optionally controlled port forwarding or inbound application services.
+Use the streaming and interactive contract for a bounded Hermes Agent demo,
+without coupling the general runtime API to one agent implementation.
 
 Expected outcome:
 
@@ -233,10 +235,12 @@ multi-tenant access controls, or reliability baseline.
 
 The next milestone should combine two bounded deliverables:
 
-1. Produce a statistically useful ordinary-OCI cold/warm baseline with tail
-   latency, reliability, density, and cost data.
-2. Implement Nydus as an optional comparison path and measure it against exactly
-   the same workload and environment.
+1. Implement Nydus as an optional comparison path while retaining the ordinary
+   OCI profile as the validated default and fallback.
+2. Add streaming command output and cancellation, then use the same primitives
+   for an interactive Hermes Agent demonstration.
 
-This sequence turns Nydus integration into a measurable performance result while
-preserving the validated Kata and ordinary-OCI MVP as the fallback.
+This sequence creates two visible product capabilities while preserving the
+validated Kata and ordinary-OCI MVP. Statistically useful baseline, concurrency,
+soak, density, and cost testing will follow when the cluster is large enough to
+produce representative results.

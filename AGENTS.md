@@ -18,3 +18,13 @@ Store all generated presentation inspection and build artifacts under
 files, and intermediate PPTX files. Do not place generated artifacts beside the
 source presentation. Only the final presentation may be written under
 `Docs/decks/`.
+
+## Temporary Development Machines
+
+Temporary development, image-build, or test machines must be stopped or
+terminated immediately after use, including after failures and interrupted
+workflows. Automation that creates a machine must include a cleanup path that
+runs on success and failure. Before finishing work that used a development
+machine, verify from the infrastructure provider that no task-created machine
+is still running. Keep a machine only when the user explicitly requests it, and
+report its identifier, purpose, and expected shutdown time.
