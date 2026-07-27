@@ -16,6 +16,9 @@ Xolis combines the following components:
 The high-level architecture is described in [Docs/General-Arch.md](Docs/General-Arch.md).
 The initial service decomposition, API boundary, and image plan are described in
 [Docs/Initial-Sandbox-Service-Design.md](Docs/Initial-Sandbox-Service-Design.md).
+The consolidated implementation status, measured performance, availability
+boundary, and roadmap are described in
+[Docs/Project-Status-and-Roadmap.md](Docs/Project-Status-and-Roadmap.md).
 
 ## Status
 
