@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use axum::body::Body;
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::{Client, multipart};
 use serde::Serialize;
@@ -44,6 +45,11 @@ pub trait SandboxRuntime: Send + Sync {
         sandbox: &Sandbox,
         request: &ExecuteCommandRequest,
     ) -> Result<ExecuteCommandResponse, RuntimeError>;
+    async fn execute_stream(
+        &self,
+        sandbox: &Sandbox,
+        request: &ExecuteCommandRequest,
+    ) -> Result<Body, RuntimeError>;
     async fn upload(
         &self,
         sandbox: &Sandbox,
@@ -138,6 +144,21 @@ impl SandboxRuntime for RouterRuntimeClient {
             .json()
             .await
             .map_err(map_reqwest_error)
+    }
+
+    async fn execute_stream(
+        &self,
+        sandbox: &Sandbox,
+        request: &ExecuteCommandRequest,
+    ) -> Result<Body, RuntimeError> {
+        let request = self
+            .request(reqwest::Method::POST, "execute/stream", sandbox)?
+            .json(&RuntimeExecuteRequest {
+                command: &request.command,
+                timeout_seconds: request.timeout_seconds,
+            });
+        let response = Self::response(request).await?;
+        Ok(Body::from_stream(response.bytes_stream()))
     }
 
     async fn upload(
@@ -261,6 +282,44 @@ mod tests {
             .expect("execute response");
         assert_eq!(response.exit_code, 0);
         assert_eq!(response.stdout, "Python 3.14.0\n");
+    }
+
+    #[tokio::test]
+    async fn execute_stream_preserves_sse_body() {
+        use http_body_util::BodyExt;
+
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/execute/stream"))
+            .and(header("x-sandbox-id", "xolis-runtime-id"))
+            .and(body_json(
+                json!({"command": "python -V", "timeout_seconds": 10}),
+            ))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "text/event-stream")
+                    .set_body_string("event: exit\ndata: {\"exit_code\":0}\n\n"),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let body = client(&server)
+            .await
+            .execute_stream(
+                &sandbox(),
+                &ExecuteCommandRequest {
+                    command: "python -V".to_owned(),
+                    timeout_seconds: 10,
+                },
+            )
+            .await
+            .expect("stream response")
+            .collect()
+            .await
+            .expect("stream body")
+            .to_bytes();
+        assert!(String::from_utf8_lossy(&body).contains("event: exit"));
     }
 
     #[tokio::test]

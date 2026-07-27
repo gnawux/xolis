@@ -7,6 +7,7 @@ import os
 import shlex
 import signal
 import tempfile
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -58,6 +59,38 @@ class CommandResult:
     exit_code: int
 
 
+@dataclass(frozen=True)
+class CommandEvent:
+    event: str
+    data: dict[str, str | int]
+
+
+def _parse_command(
+    settings: RuntimeSettings, command: str, timeout_seconds: int
+) -> list[str]:
+    if not command.strip():
+        raise InvalidCommand("command cannot be empty")
+    if not 1 <= timeout_seconds <= settings.maximum_command_timeout_seconds:
+        raise InvalidCommand(
+            "timeout_seconds must be between 1 and "
+            f"{settings.maximum_command_timeout_seconds}"
+        )
+    try:
+        arguments = shlex.split(command)
+    except ValueError as error:
+        raise InvalidCommand(f"command cannot be parsed: {error}") from error
+    if not arguments:
+        raise InvalidCommand("command cannot be empty")
+    return arguments
+
+
+def _kill_process_group(process: asyncio.subprocess.Process) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
 def resolve_workspace_path(workspace: Path, requested_path: str) -> Path:
     """Resolve a relative path and reject traversal outside the workspace."""
     if not requested_path or "\x00" in requested_path:
@@ -90,19 +123,7 @@ async def execute_command(
     settings: RuntimeSettings, command: str, timeout_seconds: int
 ) -> CommandResult:
     """Execute one command, drain bounded output, and kill its group on timeout."""
-    if not command.strip():
-        raise InvalidCommand("command cannot be empty")
-    if not 1 <= timeout_seconds <= settings.maximum_command_timeout_seconds:
-        raise InvalidCommand(
-            "timeout_seconds must be between 1 and "
-            f"{settings.maximum_command_timeout_seconds}"
-        )
-    try:
-        arguments = shlex.split(command)
-    except ValueError as error:
-        raise InvalidCommand(f"command cannot be parsed: {error}") from error
-    if not arguments:
-        raise InvalidCommand("command cannot be empty")
+    arguments = _parse_command(settings, command, timeout_seconds)
 
     settings.workspace.mkdir(parents=True, exist_ok=True)
     try:
@@ -127,10 +148,7 @@ async def execute_command(
         await asyncio.wait_for(process.wait(), timeout=timeout_seconds)
     except TimeoutError:
         timed_out = True
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        _kill_process_group(process)
         await process.wait()
 
     stdout_bytes, stderr_bytes = await asyncio.gather(stdout_task, stderr_task)
@@ -141,6 +159,92 @@ async def execute_command(
         stderr = f"{stderr}\n{timeout_message}" if stderr else timeout_message
         return CommandResult(stdout, stderr, 124)
     return CommandResult(stdout, stderr, process.returncode or 0)
+
+
+async def stream_command(
+    settings: RuntimeSettings, command: str, timeout_seconds: int
+) -> AsyncIterator[CommandEvent]:
+    """Stream bounded command output and always clean up the process group."""
+    arguments = _parse_command(settings, command, timeout_seconds)
+    settings.workspace.mkdir(parents=True, exist_ok=True)
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *arguments,
+            cwd=settings.workspace,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
+        )
+    except OSError as error:
+        yield CommandEvent("error", {"message": f"Failed to execute command: {error}"})
+        return
+
+    queue: asyncio.Queue[tuple[str, bytes] | None] = asyncio.Queue()
+
+    async def read_stream(name: str, stream: asyncio.StreamReader | None) -> None:
+        if stream is not None:
+            while chunk := await stream.read(64 * 1024):
+                await queue.put((name, chunk))
+        await queue.put(None)
+
+    readers = [
+        asyncio.create_task(read_stream("stdout", process.stdout)),
+        asyncio.create_task(read_stream("stderr", process.stderr)),
+    ]
+    deadline = asyncio.get_running_loop().time() + timeout_seconds
+    emitted = {"stdout": 0, "stderr": 0}
+    completed_readers = 0
+    timed_out = False
+    try:
+        yield CommandEvent("start", {"pid": process.pid})
+        while completed_readers < len(readers):
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                timed_out = True
+                break
+            try:
+                item = await asyncio.wait_for(queue.get(), timeout=remaining)
+            except TimeoutError:
+                timed_out = True
+                break
+            if item is None:
+                completed_readers += 1
+                continue
+            name, chunk = item
+            allowed = settings.maximum_output_bytes - emitted[name]
+            if allowed <= 0:
+                continue
+            chunk = chunk[:allowed]
+            emitted[name] += len(chunk)
+            yield CommandEvent(name, {"data": chunk.decode("utf-8", errors="replace")})
+
+        if timed_out:
+            _kill_process_group(process)
+            await process.wait()
+            yield CommandEvent(
+                "timeout", {"message": f"command timed out after {timeout_seconds} seconds"}
+            )
+        else:
+            remaining = max(0, deadline - asyncio.get_running_loop().time())
+            try:
+                await asyncio.wait_for(process.wait(), timeout=remaining)
+            except TimeoutError:
+                timed_out = True
+                _kill_process_group(process)
+                await process.wait()
+                yield CommandEvent(
+                    "timeout",
+                    {"message": f"command timed out after {timeout_seconds} seconds"},
+                )
+        yield CommandEvent("exit", {"exit_code": 124 if timed_out else process.returncode or 0})
+    finally:
+        if process.returncode is None:
+            _kill_process_group(process)
+            await process.wait()
+        for reader in readers:
+            if not reader.done():
+                reader.cancel()
+        await asyncio.gather(*readers, return_exceptions=True)
 
 
 def write_upload(

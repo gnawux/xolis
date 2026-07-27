@@ -60,6 +60,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/v1/sandboxes/{id}/commands", post(execute_command))
         .route(
+            "/v1/sandboxes/{id}/commands/stream",
+            post(execute_command_stream),
+        )
+        .route(
             "/v1/sandboxes/{id}/files/{*path}",
             put(upload_file).get(get_file),
         )
@@ -125,19 +129,44 @@ async fn execute_command(
     Json(request): Json<ExecuteCommandRequest>,
 ) -> Result<Json<crate::domain::ExecuteCommandResponse>, ApiError> {
     let tenant_id = required_header(&headers, TENANT_HEADER)?;
+    validate_command(&state.config, &request)?;
+    let sandbox = running_sandbox(&state, &tenant_id, &id).await?;
+    Ok(Json(state.runtime.execute(&sandbox, &request).await?))
+}
+
+async fn execute_command_stream(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(request): Json<ExecuteCommandRequest>,
+) -> Result<Response, ApiError> {
+    let tenant_id = required_header(&headers, TENANT_HEADER)?;
+    validate_command(&state.config, &request)?;
+    let sandbox = running_sandbox(&state, &tenant_id, &id).await?;
+    let body = state.runtime.execute_stream(&sandbox, &request).await?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, "text/event-stream"),
+            (header::CACHE_CONTROL, "no-cache"),
+        ],
+        body,
+    )
+        .into_response())
+}
+
+fn validate_command(config: &AppConfig, request: &ExecuteCommandRequest) -> Result<(), ApiError> {
     if request.command.trim().is_empty() {
         return Err(ApiError::bad_request("command cannot be empty"));
     }
     if request.timeout_seconds == 0
-        || request.timeout_seconds > state.config.maximum_command_timeout_seconds
+        || request.timeout_seconds > config.maximum_command_timeout_seconds
     {
         return Err(ApiError::bad_request(format!(
             "timeoutSeconds must be between 1 and {}",
-            state.config.maximum_command_timeout_seconds
+            config.maximum_command_timeout_seconds
         )));
     }
-    let sandbox = running_sandbox(&state, &tenant_id, &id).await?;
-    Ok(Json(state.runtime.execute(&sandbox, &request).await?))
+    Ok(())
 }
 
 async fn upload_file(
@@ -388,6 +417,17 @@ mod tests {
             })
         }
 
+        async fn execute_stream(
+            &self,
+            _sandbox: &Sandbox,
+            request: &ExecuteCommandRequest,
+        ) -> Result<Body, RuntimeError> {
+            Ok(Body::from(format!(
+                "event: stdout\ndata: {{\"data\":\"ran: {}\"}}\n\nevent: exit\ndata: {{\"exit_code\":0}}\n\n",
+                request.command
+            )))
+        }
+
         async fn upload(
             &self,
             _sandbox: &Sandbox,
@@ -621,6 +661,27 @@ mod tests {
             .expect("command response");
         assert_eq!(command.status(), StatusCode::OK);
         assert_eq!(json_body(command).await["stdout"], "ran: python -V");
+
+        let streamed = application
+            .clone()
+            .oneshot(
+                Request::post(format!("/v1/sandboxes/{sandbox_id}/commands/stream"))
+                    .header("x-xolis-tenant", "tenant-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"command":"python -V","timeoutSeconds":10}"#))
+                    .expect("request"),
+            )
+            .await
+            .expect("stream response");
+        assert_eq!(streamed.status(), StatusCode::OK);
+        assert_eq!(streamed.headers()["content-type"], "text/event-stream");
+        let streamed_body = streamed
+            .into_body()
+            .collect()
+            .await
+            .expect("stream body")
+            .to_bytes();
+        assert!(String::from_utf8_lossy(&streamed_body).contains("event: exit"));
 
         let upload = application
             .clone()

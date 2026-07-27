@@ -56,6 +56,23 @@ class RuntimeApiTests(unittest.TestCase):
         traversal = self.client.get("/download/%2E%2E%2Fsecret")
         self.assertEqual(traversal.status_code, 403)
 
+    def test_execute_stream_uses_sse_and_keeps_buffered_api_compatible(self) -> None:
+        script = "import sys;print('out');print('err',file=sys.stderr)"
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+        streamed = self.client.post(
+            "/execute/stream", json={"command": command, "timeout_seconds": 1}
+        )
+        self.assertEqual(streamed.status_code, 200)
+        self.assertTrue(streamed.headers["content-type"].startswith("text/event-stream"))
+        self.assertIn("event: stdout", streamed.text)
+        self.assertIn("event: stderr", streamed.text)
+        self.assertIn('event: exit\ndata: {"exit_code":0}', streamed.text)
+
+        buffered = self.client.post(
+            "/execute", json={"command": command, "timeout_seconds": 1}
+        )
+        self.assertEqual(buffered.json()["stdout"], "out\n")
+
 
 if __name__ == "__main__":
     unittest.main()

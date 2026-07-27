@@ -17,6 +17,7 @@ from xolis_runtime.core import (
     execute_command,
     list_directory,
     resolve_workspace_path,
+    stream_command,
     write_upload,
 )
 
@@ -67,6 +68,41 @@ class RuntimeCoreTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_timeout_is_rejected(self) -> None:
         with self.assertRaises(InvalidCommand):
             await execute_command(self.settings, "python -V", 3)
+
+    async def test_stream_emits_output_before_exit_and_caps_each_stream(self) -> None:
+        script = "import sys;print('first',flush=True);print('x'*100,file=sys.stderr)"
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+        events = [event async for event in stream_command(self.settings, command, 1)]
+        self.assertEqual(events[0].event, "start")
+        self.assertEqual(events[-1].event, "exit")
+        self.assertEqual(events[-1].data["exit_code"], 0)
+        self.assertIn("first", "".join(str(e.data.get("data", "")) for e in events))
+        stderr = "".join(str(e.data.get("data", "")) for e in events if e.event == "stderr")
+        self.assertEqual(len(stderr.encode()), 16)
+
+    async def test_stream_timeout_kills_process_group(self) -> None:
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote('import time;time.sleep(5)')}"
+        events = [event async for event in stream_command(self.settings, command, 1)]
+        self.assertEqual([event.event for event in events[-2:]], ["timeout", "exit"])
+        self.assertEqual(events[-1].data["exit_code"], 124)
+
+    async def test_closing_stream_kills_process_group(self) -> None:
+        marker = self.workspace / "stream-child-finished"
+        child_script = (
+            "import pathlib,time;time.sleep(0.5);"
+            f"pathlib.Path({str(marker)!r}).write_text('not killed')"
+        )
+        parent_script = (
+            "import subprocess,sys,time;"
+            f"subprocess.Popen([sys.executable,'-c',{child_script!r}]);"
+            "time.sleep(5)"
+        )
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(parent_script)}"
+        events = stream_command(self.settings, command, 2)
+        self.assertEqual((await anext(events)).event, "start")
+        await events.aclose()
+        await asyncio.sleep(0.7)
+        self.assertFalse(marker.exists())
 
     def test_paths_are_confined_even_through_symlinks(self) -> None:
         outside = Path(self.temporary_directory.name) / "outside"

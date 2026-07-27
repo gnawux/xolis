@@ -9,6 +9,7 @@ The supported endpoints are:
 
 - `GET /` and `GET /healthz` for health checks;
 - `POST /execute` for bounded, non-interactive commands;
+- `POST /execute/stream` for bounded commands streamed as Server-Sent Events;
 - `POST /upload` for multipart file uploads;
 - `GET /download/{path}` for file downloads;
 - `GET /list/{path}` for directory listings;
@@ -26,4 +27,9 @@ Run locally with a writable workspace:
 
 Run the tests from this directory:
 
+    python -m pip install -e '.[test]'
     python -m unittest discover -s tests -v
+
+The stream emits `start`, `stdout`, `stderr`, and `exit` events. Timed-out
+commands also emit `timeout` before `exit`. Disconnecting the client terminates
+the command process group.

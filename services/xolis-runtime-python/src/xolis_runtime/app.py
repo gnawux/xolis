@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .core import (
@@ -17,6 +18,7 @@ from .core import (
     execute_command,
     list_directory,
     resolve_workspace_path,
+    stream_command,
     write_upload,
 )
 
@@ -54,6 +56,35 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
             stderr=result.stderr,
             exit_code=result.exit_code,
         )
+
+    @application.post("/execute/stream")
+    async def execute_stream(request: ExecuteRequest) -> StreamingResponse:
+        try:
+            events = stream_command(
+                runtime_settings, request.command, request.timeout_seconds
+            )
+            first_event = await anext(events)
+        except InvalidCommand as error:
+            raise HTTPException(status_code=400, detail=str(error)) from error
+        except StopAsyncIteration:
+            raise HTTPException(status_code=500, detail="command stream ended unexpectedly")
+
+        async def encode_events():
+            try:
+                event = first_event
+                while True:
+                    yield (
+                        f"event: {event.event}\n"
+                        f"data: {json.dumps(event.data, separators=(',', ':'))}\n\n"
+                    )
+                    try:
+                        event = await anext(events)
+                    except StopAsyncIteration:
+                        return
+            finally:
+                await events.aclose()
+
+        return StreamingResponse(encode_events(), media_type="text/event-stream")
 
     @application.post("/upload")
     async def upload(file: UploadFile = File(...)) -> dict[str, str]:
