@@ -21,6 +21,7 @@ RUN git init /opt/hermes-agent \
     && (pip install --no-cache-dir --editable /opt/hermes-agent . \
         > /tmp/hermes-install.log 2>&1 \
         || { tail -n 120 /tmp/hermes-install.log >&2; exit 1; }) \
+    && hermes --help >/dev/null \
     && rm /tmp/hermes-install.log \
     && groupadd --gid 1000 xolis \
     && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin xolis \
