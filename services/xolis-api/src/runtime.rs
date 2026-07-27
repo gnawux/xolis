@@ -2,10 +2,13 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use axum::body::Body;
+use axum::extract::ws::{Message, WebSocket};
+use futures_util::{SinkExt, StreamExt};
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::{Client, multipart};
 use serde::Serialize;
 use thiserror::Error;
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 
 use crate::domain::{ExecuteCommandRequest, ExecuteCommandResponse, FileEntry, Sandbox};
 
@@ -50,6 +53,11 @@ pub trait SandboxRuntime: Send + Sync {
         sandbox: &Sandbox,
         request: &ExecuteCommandRequest,
     ) -> Result<Body, RuntimeError>;
+    async fn interactive(
+        &self,
+        sandbox: &Sandbox,
+        client_socket: WebSocket,
+    ) -> Result<(), RuntimeError>;
     async fn upload(
         &self,
         sandbox: &Sandbox,
@@ -118,6 +126,52 @@ impl RouterRuntimeClient {
         let detail = response.text().await.unwrap_or_default();
         Err(RuntimeError::Rejected(format!("{status}: {detail}")))
     }
+
+    fn websocket_request(
+        &self,
+        sandbox: &Sandbox,
+    ) -> Result<tokio_tungstenite::tungstenite::http::Request<()>, RuntimeError> {
+        let runtime_id = sandbox
+            .runtime_id
+            .as_deref()
+            .ok_or(RuntimeError::NotReady)?;
+        let scheme = if self.base_url.starts_with("https://") {
+            "wss"
+        } else {
+            "ws"
+        };
+        let authority = self
+            .base_url
+            .split_once("://")
+            .map(|(_, value)| value)
+            .unwrap_or(&self.base_url);
+        let mut request = format!("{scheme}://{authority}/interactive")
+            .into_client_request()
+            .map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+        let headers = request.headers_mut();
+        headers.insert(
+            SANDBOX_ID_HEADER,
+            runtime_id.parse().map_err(|error| {
+                RuntimeError::Unavailable(format!("invalid runtime id: {error}"))
+            })?,
+        );
+        headers.insert(
+            SANDBOX_NAMESPACE_HEADER,
+            self.namespace.parse().map_err(|error| {
+                RuntimeError::Unavailable(format!("invalid namespace: {error}"))
+            })?,
+        );
+        headers.insert(SANDBOX_PORT_HEADER, self.port.into());
+        if let Some(pod_ip) = sandbox.runtime_pod_ip.as_deref() {
+            headers.insert(
+                SANDBOX_POD_IP_HEADER,
+                pod_ip.parse().map_err(|error| {
+                    RuntimeError::Unavailable(format!("invalid pod IP: {error}"))
+                })?,
+            );
+        }
+        Ok(request)
+    }
 }
 
 #[derive(Serialize)]
@@ -159,6 +213,69 @@ impl SandboxRuntime for RouterRuntimeClient {
             });
         let response = Self::response(request).await?;
         Ok(Body::from_stream(response.bytes_stream()))
+    }
+
+    async fn interactive(
+        &self,
+        sandbox: &Sandbox,
+        client_socket: WebSocket,
+    ) -> Result<(), RuntimeError> {
+        let (runtime_socket, _) =
+            tokio_tungstenite::connect_async(self.websocket_request(sandbox)?)
+                .await
+                .map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+        let (mut client_sender, mut client_receiver) = client_socket.split();
+        let (mut runtime_sender, mut runtime_receiver) = runtime_socket.split();
+
+        let client_to_runtime = async {
+            while let Some(message) = client_receiver.next().await {
+                let message =
+                    message.map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+                let message = match message {
+                    Message::Text(value) => {
+                        tokio_tungstenite::tungstenite::Message::Text(value.to_string().into())
+                    }
+                    Message::Binary(value) => {
+                        tokio_tungstenite::tungstenite::Message::Binary(value)
+                    }
+                    Message::Ping(value) => tokio_tungstenite::tungstenite::Message::Ping(value),
+                    Message::Pong(value) => tokio_tungstenite::tungstenite::Message::Pong(value),
+                    Message::Close(_) => tokio_tungstenite::tungstenite::Message::Close(None),
+                };
+                runtime_sender
+                    .send(message)
+                    .await
+                    .map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+            }
+            Ok::<(), RuntimeError>(())
+        };
+        let runtime_to_client = async {
+            while let Some(message) = runtime_receiver.next().await {
+                let message =
+                    message.map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+                let message = match message {
+                    tokio_tungstenite::tungstenite::Message::Text(value) => {
+                        Message::Text(value.to_string().into())
+                    }
+                    tokio_tungstenite::tungstenite::Message::Binary(value) => {
+                        Message::Binary(value)
+                    }
+                    tokio_tungstenite::tungstenite::Message::Ping(value) => Message::Ping(value),
+                    tokio_tungstenite::tungstenite::Message::Pong(value) => Message::Pong(value),
+                    tokio_tungstenite::tungstenite::Message::Close(_) => Message::Close(None),
+                    tokio_tungstenite::tungstenite::Message::Frame(_) => continue,
+                };
+                client_sender
+                    .send(message)
+                    .await
+                    .map_err(|error| RuntimeError::Unavailable(error.to_string()))?;
+            }
+            Ok::<(), RuntimeError>(())
+        };
+        tokio::select! {
+            result = client_to_runtime => result,
+            result = runtime_to_client => result,
+        }
     }
 
     async fn upload(
@@ -320,6 +437,20 @@ mod tests {
             .expect("stream body")
             .to_bytes();
         assert!(String::from_utf8_lossy(&body).contains("event: exit"));
+    }
+
+    #[tokio::test]
+    async fn interactive_request_preserves_router_identity_and_websocket_handshake() {
+        let server = MockServer::start().await;
+        let request = client(&server)
+            .await
+            .websocket_request(&sandbox())
+            .expect("websocket request");
+        assert_eq!(request.uri().path(), "/interactive");
+        assert_eq!(request.headers()["x-sandbox-id"], "xolis-runtime-id");
+        assert_eq!(request.headers()["x-sandbox-pod-ip"], "10.42.1.230");
+        assert_eq!(request.headers()["upgrade"], "websocket");
+        assert!(request.headers().contains_key("sec-websocket-key"));
     }
 
     #[tokio::test]

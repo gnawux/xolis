@@ -65,7 +65,7 @@ class CommandEvent:
     data: dict[str, str | int]
 
 
-def _parse_command(
+def parse_command(
     settings: RuntimeSettings, command: str, timeout_seconds: int
 ) -> list[str]:
     if not command.strip():
@@ -123,7 +123,7 @@ async def execute_command(
     settings: RuntimeSettings, command: str, timeout_seconds: int
 ) -> CommandResult:
     """Execute one command, drain bounded output, and kill its group on timeout."""
-    arguments = _parse_command(settings, command, timeout_seconds)
+    arguments = parse_command(settings, command, timeout_seconds)
 
     settings.workspace.mkdir(parents=True, exist_ok=True)
     try:
@@ -165,7 +165,7 @@ async def stream_command(
     settings: RuntimeSettings, command: str, timeout_seconds: int
 ) -> AsyncIterator[CommandEvent]:
     """Stream bounded command output and always clean up the process group."""
-    arguments = _parse_command(settings, command, timeout_seconds)
+    arguments = parse_command(settings, command, timeout_seconds)
     settings.workspace.mkdir(parents=True, exist_ok=True)
     try:
         process = await asyncio.create_subprocess_exec(

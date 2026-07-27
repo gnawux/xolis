@@ -10,6 +10,7 @@ The supported endpoints are:
 - `GET /` and `GET /healthz` for health checks;
 - `POST /execute` for bounded, non-interactive commands;
 - `POST /execute/stream` for bounded commands streamed as Server-Sent Events;
+- `WS /interactive` for TTL-bound bidirectional PTY sessions;
 - `POST /upload` for multipart file uploads;
 - `GET /download/{path}` for file downloads;
 - `GET /list/{path}` for directory listings;
@@ -33,3 +34,10 @@ Run the tests from this directory:
 The stream emits `start`, `stdout`, `stderr`, and `exit` events. Timed-out
 commands also emit `timeout` before `exit`. Disconnecting the client terminates
 the command process group.
+
+Interactive clients begin with a JSON `start` message containing `command`,
+`ttl_seconds`, and optional `rows` and `columns`. They send base64-encoded
+`input`, `resize`, `cancel`, or `close` messages. The server returns `start`,
+base64-encoded `output`, `timeout`, `error`, and `exit` messages. Session TTL,
+output limits, workspace confinement, and process-group cleanup use the same
+runtime policy as non-interactive commands.

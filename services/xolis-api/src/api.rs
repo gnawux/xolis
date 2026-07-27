@@ -3,7 +3,7 @@ use std::sync::Arc;
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Path, Query, State},
+    extract::{Path, Query, State, WebSocketUpgrade, ws::WebSocket},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post, put},
@@ -63,6 +63,7 @@ pub fn router(state: AppState) -> Router {
             "/v1/sandboxes/{id}/commands/stream",
             post(execute_command_stream),
         )
+        .route("/v1/sandboxes/{id}/sessions", get(interactive_session))
         .route(
             "/v1/sandboxes/{id}/files/{*path}",
             put(upload_file).get(get_file),
@@ -151,6 +152,23 @@ async fn execute_command_stream(
         ],
         body,
     )
+        .into_response())
+}
+
+async fn interactive_session(
+    websocket: WebSocketUpgrade,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let tenant_id = required_header(&headers, TENANT_HEADER)?;
+    let sandbox = running_sandbox(&state, &tenant_id, &id).await?;
+    Ok(websocket
+        .on_upgrade(move |socket: WebSocket| async move {
+            if let Err(error) = state.runtime.interactive(&sandbox, socket).await {
+                tracing::warn!(sandbox_id = %sandbox.id, %error, "interactive session ended with an error");
+            }
+        })
         .into_response())
 }
 
@@ -385,6 +403,7 @@ mod tests {
     use async_trait::async_trait;
     use axum::{
         body::Body,
+        extract::ws::WebSocket,
         http::{Request, StatusCode},
     };
     use http_body_util::BodyExt;
@@ -426,6 +445,14 @@ mod tests {
                 "event: stdout\ndata: {{\"data\":\"ran: {}\"}}\n\nevent: exit\ndata: {{\"exit_code\":0}}\n\n",
                 request.command
             )))
+        }
+
+        async fn interactive(
+            &self,
+            _sandbox: &Sandbox,
+            _client_socket: WebSocket,
+        ) -> Result<(), RuntimeError> {
+            Ok(())
         }
 
         async fn upload(

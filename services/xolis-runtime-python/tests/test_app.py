@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import tempfile
 import unittest
 import shlex
 import sys
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -72,6 +74,58 @@ class RuntimeApiTests(unittest.TestCase):
             "/execute", json={"command": command, "timeout_seconds": 1}
         )
         self.assertEqual(buffered.json()["stdout"], "out\n")
+
+    def test_interactive_session_accepts_input_and_returns_pty_output(self) -> None:
+        script = "import os;data=os.read(0,3);os.write(1,b'got:'+data)"
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+        output = bytearray()
+        with self.client.websocket_connect("/interactive") as websocket:
+            websocket.send_json(
+                {"type": "start", "command": command, "ttl_seconds": 2}
+            )
+            self.assertEqual(websocket.receive_json()["type"], "start")
+            websocket.send_json(
+                {
+                    "type": "input",
+                    "data": base64.b64encode(b"hi\n").decode("ascii"),
+                }
+            )
+            while True:
+                message = websocket.receive_json()
+                if message["type"] == "output":
+                    output.extend(base64.b64decode(message["data"]))
+                if message["type"] == "exit":
+                    self.assertEqual(message["exit_code"], 0)
+                    break
+        self.assertIn(b"got:hi", output)
+
+    def test_interactive_close_kills_child_process_group(self) -> None:
+        marker = self.workspace / "interactive-child-finished"
+        child = (
+            "import pathlib,time;time.sleep(0.5);"
+            f"pathlib.Path({str(marker)!r}).write_text('not killed')"
+        )
+        script = (
+            "import os,subprocess,sys,time;"
+            f"subprocess.Popen([sys.executable,'-c',{child!r}]);"
+            "os.write(1,b'ready\\n');time.sleep(5)"
+        )
+        command = f"{shlex.quote(sys.executable)} -c {shlex.quote(script)}"
+        with self.client.websocket_connect("/interactive") as websocket:
+            websocket.send_json(
+                {"type": "start", "command": command, "ttl_seconds": 2}
+            )
+            self.assertEqual(websocket.receive_json()["type"], "start")
+            while True:
+                message = websocket.receive_json()
+                if message["type"] == "output" and b"ready" in base64.b64decode(
+                    message["data"]
+                ):
+                    break
+            websocket.send_json({"type": "close"})
+            self.assertEqual(websocket.receive_json(), {"type": "exit", "exit_code": 130})
+        time.sleep(0.7)
+        self.assertFalse(marker.exists())
 
 
 if __name__ == "__main__":

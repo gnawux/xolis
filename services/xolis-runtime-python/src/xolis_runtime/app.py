@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -21,6 +21,7 @@ from .core import (
     stream_command,
     write_upload,
 )
+from .interactive import run_interactive_session
 
 
 class ExecuteRequest(BaseModel):
@@ -85,6 +86,11 @@ def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
                 await events.aclose()
 
         return StreamingResponse(encode_events(), media_type="text/event-stream")
+
+    @application.websocket("/interactive")
+    async def interactive(websocket: WebSocket) -> None:
+        await websocket.accept()
+        await run_interactive_session(websocket, runtime_settings)
 
     @application.post("/upload")
     async def upload(file: UploadFile = File(...)) -> dict[str, str]:
