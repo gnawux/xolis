@@ -13,9 +13,12 @@ RUN apt-get update \
 
 COPY services/xolis-runtime-python/pyproject.toml ./
 COPY services/xolis-runtime-python/src/ src/
-RUN pip install --no-cache-dir . \
-    && pip install --no-cache-dir \
-        "git+https://github.com/NousResearch/hermes-agent.git@${HERMES_COMMIT}" \
+RUN git init /opt/hermes-agent \
+    && git -C /opt/hermes-agent remote add origin https://github.com/NousResearch/hermes-agent.git \
+    && git -C /opt/hermes-agent fetch --depth 1 origin "${HERMES_COMMIT}" \
+    && git -C /opt/hermes-agent checkout --detach FETCH_HEAD \
+    && test "$(git -C /opt/hermes-agent rev-parse HEAD)" = "${HERMES_COMMIT}" \
+    && pip install --no-cache-dir --editable /opt/hermes-agent . \
     && groupadd --gid 1000 xolis \
     && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin xolis \
     && mkdir --mode=0750 /workspace \
