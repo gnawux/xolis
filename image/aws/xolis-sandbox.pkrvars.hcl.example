@@ -9,8 +9,11 @@ kata_archive_url    = "https://github.com/kata-containers/kata-containers/releas
 kata_archive_sha256 = "2c3b9dfeba355582b40aee462b12916c9740654d0230f696adf719d67b063a8c"
 kata_source_commit  = "cf82bb35c80320178bf7570252fe75d6fb263209"
 
-# Leave these empty for the Kata-only baseline. Set all three values together
-# when enabling a pinned Nydus snapshotter build.
-nydus_version        = ""
-nydus_archive_url    = ""
-nydus_archive_sha256 = ""
+# Leave these empty for the Kata-only baseline. Set all six values together
+# when enabling pinned Nydus snapshotter and image-service binaries.
+nydus_snapshotter_version        = ""
+nydus_snapshotter_archive_url    = ""
+nydus_snapshotter_archive_sha256 = ""
+nydus_daemon_version              = ""
+nydus_daemon_archive_url          = ""
+nydus_daemon_archive_sha256       = ""

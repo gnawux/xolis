@@ -1,8 +1,20 @@
-[daemon]
-  threads = 4
+version = 1
+root = "/var/lib/containerd/io.containerd.snapshotter.v1.nydus"
+address = "/run/containerd-nydus/containerd-nydus-grpc.sock"
+daemon_mode = "dedicated"
+cleanup_on_close = true
 
-[snapshot]
-  root = "/var/lib/containerd/io.containerd.snapshotter.v1.nydus"
+[daemon]
+nydusd_config = "/etc/nydus/nydusd-config.fusedev.json"
+nydusd_path = "/usr/local/bin/nydusd"
+nydusimage_path = "/usr/local/bin/nydus-image"
+fs_driver = "fusedev"
+recover_policy = "restart"
+threads_number = 4
 
 [remote]
-  type = "registry"
+convert_vpc_registry = false
+
+[snapshot]
+enable_kata_volume = true
+sync_remove = true

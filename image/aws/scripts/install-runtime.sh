@@ -15,7 +15,14 @@ for variable in "${required_variables[@]}"; do
   fi
 done
 
-nydus_variables=(NYDUS_VERSION NYDUS_ARCHIVE_URL NYDUS_ARCHIVE_SHA256)
+nydus_variables=(
+  NYDUS_SNAPSHOTTER_VERSION
+  NYDUS_SNAPSHOTTER_ARCHIVE_URL
+  NYDUS_SNAPSHOTTER_ARCHIVE_SHA256
+  NYDUS_DAEMON_VERSION
+  NYDUS_DAEMON_ARCHIVE_URL
+  NYDUS_DAEMON_ARCHIVE_SHA256
+)
 nydus_variable_count=0
 for variable in "${nydus_variables[@]}"; do
   if [[ -n "${!variable:-}" ]]; then
@@ -222,25 +229,36 @@ ExecStartPre=/usr/local/sbin/xolis-enable-containerd-import
 EOF
 
 if (( nydus_variable_count == ${#nydus_variables[@]} )); then
-  nydus_archive="${work_directory}/nydus-static.tar.zst"
-  download_and_verify "${NYDUS_ARCHIVE_URL}" "${NYDUS_ARCHIVE_SHA256}" "${nydus_archive}"
-  extract_archive "${nydus_archive}" "${work_directory}/nydus"
-  install_release_root "${work_directory}/nydus" "nydus-snapshotter" "/opt/nydus"
-  install -m 0755 /opt/nydus/bin/nydus-snapshotter /usr/local/bin/nydus-snapshotter
-  install -m 0755 /opt/nydus/bin/nydusd /usr/local/bin/nydusd
+  snapshotter_archive="${work_directory}/nydus-snapshotter.tar.gz"
+  daemon_archive="${work_directory}/nydus-daemon.tar.gz"
+  download_and_verify "${NYDUS_SNAPSHOTTER_ARCHIVE_URL}" "${NYDUS_SNAPSHOTTER_ARCHIVE_SHA256}" "${snapshotter_archive}"
+  download_and_verify "${NYDUS_DAEMON_ARCHIVE_URL}" "${NYDUS_DAEMON_ARCHIVE_SHA256}" "${daemon_archive}"
+  extract_archive "${snapshotter_archive}" "${work_directory}/nydus-snapshotter"
+  extract_archive "${daemon_archive}" "${work_directory}/nydus-daemon"
+  install_release_root "${work_directory}/nydus-snapshotter" "containerd-nydus-grpc" "/opt/nydus-snapshotter"
+  install -m 0755 /opt/nydus-snapshotter/bin/containerd-nydus-grpc /usr/local/bin/containerd-nydus-grpc
+  daemon_root="$(dirname "$(find "${work_directory}/nydus-daemon" -type f -name nydusd -print -quit)")"
+  if [[ "${daemon_root}" == "." ]]; then
+    echo "nydusd was not found in the verified archive" >&2
+    exit 1
+  fi
+  install -m 0755 "${daemon_root}/nydusd" /usr/local/bin/nydusd
+  install -m 0755 "${daemon_root}/nydus-image" /usr/local/bin/nydus-image
   install -m 0644 /tmp/nydus-snapshotter.toml /etc/nydus/snapshotter.toml
+  install -m 0644 /tmp/nydusd-config.fusedev.json /etc/nydus/nydusd-config.fusedev.json
 
   cat >/etc/systemd/system/nydus-snapshotter.service <<'EOF'
 [Unit]
 Description=Nydus containerd snapshotter for Xolis
-After=containerd.service
-Wants=containerd.service
+After=network.target
+Before=containerd.service
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/nydus-snapshotter --config /etc/nydus/snapshotter.toml
+ExecStart=/usr/local/bin/containerd-nydus-grpc --config /etc/nydus/snapshotter.toml --log-to-stdout
 Restart=always
-RestartSec=5
+RestartSec=1
+KillMode=process
 
 [Install]
 WantedBy=multi-user.target
@@ -248,7 +266,7 @@ EOF
   systemctl enable nydus-snapshotter.service
 
   install -d -m 0755 /etc/xolis
-  printf '%s\n' "${NYDUS_VERSION}" >/etc/xolis/nydus-version
+  printf 'snapshotter=%s\ndaemon=%s\n' "${NYDUS_SNAPSHOTTER_VERSION}" "${NYDUS_DAEMON_VERSION}" >/etc/xolis/nydus-version
 fi
 
 systemctl daemon-reload
@@ -261,6 +279,7 @@ test -f /etc/kata-containers/configuration-xolis-dragonball.toml
 grep -q '^\[hypervisor\.dragonball\]' /etc/kata-containers/configuration-xolis-dragonball.toml
 test -x /usr/local/sbin/xolis-enable-containerd-import
 if (( nydus_variable_count == ${#nydus_variables[@]} )); then
-  nydus-snapshotter --version
+  containerd-nydus-grpc --version
+  nydusd --version
   test -f /etc/xolis/nydus-version
 fi

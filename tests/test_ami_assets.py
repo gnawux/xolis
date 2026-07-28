@@ -29,12 +29,21 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("runtimes.xolis-kata]", configuration)
         self.assertIn("runtimes.xolis-kata-nydus]", configuration)
         self.assertIn('snapshotter = "nydus"', configuration)
+        self.assertIn("[proxy_plugins.nydus]", configuration)
 
         installer = (ROOT / "image/aws/scripts/install-runtime.sh").read_text(
             encoding="utf-8"
         )
         self.assertIn("/etc/xolis/nydus-version", installer)
         self.assertIn("nydus-snapshotter.service", installer)
+        self.assertIn("containerd-nydus-grpc", installer)
+        self.assertIn("nydusd --version", installer)
+
+        snapshotter = (ROOT / "image/aws/files/nydus-snapshotter.toml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('nydusd_config = "/etc/nydus/nydusd-config.fusedev.json"', snapshotter)
+        self.assertIn("enable_kata_volume = true", snapshotter)
 
     def test_nydus_profile_does_not_replace_the_oci_profile(self) -> None:
         oci = (ROOT / "deploy/xolis/python-profile.yaml").read_text(encoding="utf-8")

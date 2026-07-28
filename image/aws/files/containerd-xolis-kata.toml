@@ -1,3 +1,7 @@
+[proxy_plugins.nydus]
+  type = "snapshot"
+  address = "/run/containerd-nydus/containerd-nydus-grpc.sock"
+
 [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata]
   runtime_type = "io.containerd.kata.v2"
 

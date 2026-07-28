@@ -43,21 +43,40 @@ variable "kata_source_commit" {
   description = "Immutable kata-containers source commit used to build the runtime-rs Dragonball shim."
 }
 
-variable "nydus_version" {
+variable "nydus_snapshotter_version" {
   type        = string
-  description = "Optional pinned Nydus release version, without a leading v. Leave empty for the Kata-only baseline."
+  description = "Optional pinned Nydus snapshotter release version, without a leading v. Leave empty for the Kata-only baseline."
   default     = ""
 }
 
-variable "nydus_archive_url" {
+variable "nydus_snapshotter_archive_url" {
   type        = string
-  description = "Optional HTTPS URL for the pinned Nydus static archive."
+  description = "Optional HTTPS URL for the pinned Nydus snapshotter archive."
   default     = ""
 }
 
-variable "nydus_archive_sha256" {
+variable "nydus_snapshotter_archive_sha256" {
   type        = string
-  description = "Optional SHA-256 checksum for the Nydus archive."
+  description = "Optional SHA-256 checksum for the Nydus snapshotter archive."
+  sensitive   = true
+  default     = ""
+}
+
+variable "nydus_daemon_version" {
+  type        = string
+  description = "Optional pinned Nydus image-service release version, without a leading v."
+  default     = ""
+}
+
+variable "nydus_daemon_archive_url" {
+  type        = string
+  description = "Optional HTTPS URL for the pinned Nydus image-service archive."
+  default     = ""
+}
+
+variable "nydus_daemon_archive_sha256" {
+  type        = string
+  description = "Optional SHA-256 checksum for the Nydus image-service archive."
   sensitive   = true
   default     = ""
 }
@@ -86,12 +105,13 @@ source "amazon-ebs" "sandbox" {
   }
 
   tags = {
-    Project      = "xolis"
-    Environment  = "lab"
-    ManagedBy    = "packer"
-    KataVersion  = var.kata_version
-    KataCommit   = var.kata_source_commit
-    NydusVersion = var.nydus_version != "" ? var.nydus_version : "disabled"
+    Project                 = "xolis"
+    Environment             = "lab"
+    ManagedBy               = "packer"
+    KataVersion             = var.kata_version
+    KataCommit              = var.kata_source_commit
+    NydusSnapshotterVersion = var.nydus_snapshotter_version != "" ? var.nydus_snapshotter_version : "disabled"
+    NydusDaemonVersion      = var.nydus_daemon_version != "" ? var.nydus_daemon_version : "disabled"
   }
 
   temporary_iam_instance_profile_policy_document {
@@ -128,6 +148,11 @@ build {
   }
 
   provisioner "file" {
+    source      = "files/nydusd-config.fusedev.json"
+    destination = "/tmp/nydusd-config.fusedev.json"
+  }
+
+  provisioner "file" {
     source      = "scripts/enable-containerd-import"
     destination = "/tmp/enable-containerd-import"
   }
@@ -138,9 +163,12 @@ build {
       "KATA_ARCHIVE_URL=${var.kata_archive_url}",
       "KATA_ARCHIVE_SHA256=${var.kata_archive_sha256}",
       "KATA_SOURCE_COMMIT=${var.kata_source_commit}",
-      "NYDUS_VERSION=${var.nydus_version}",
-      "NYDUS_ARCHIVE_URL=${var.nydus_archive_url}",
-      "NYDUS_ARCHIVE_SHA256=${var.nydus_archive_sha256}",
+      "NYDUS_SNAPSHOTTER_VERSION=${var.nydus_snapshotter_version}",
+      "NYDUS_SNAPSHOTTER_ARCHIVE_URL=${var.nydus_snapshotter_archive_url}",
+      "NYDUS_SNAPSHOTTER_ARCHIVE_SHA256=${var.nydus_snapshotter_archive_sha256}",
+      "NYDUS_DAEMON_VERSION=${var.nydus_daemon_version}",
+      "NYDUS_DAEMON_ARCHIVE_URL=${var.nydus_daemon_archive_url}",
+      "NYDUS_DAEMON_ARCHIVE_SHA256=${var.nydus_daemon_archive_sha256}",
     ]
     execute_command = "chmod +x {{ .Path }}; sudo /usr/bin/env {{ .Vars }} {{ .Path }}"
     script          = "scripts/install-runtime.sh"

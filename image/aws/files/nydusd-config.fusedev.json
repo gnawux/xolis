@@ -1,0 +1,26 @@
+{
+  "device": {
+    "backend": {
+      "type": "registry",
+      "config": {
+        "timeout": 5,
+        "connect_timeout": 5,
+        "retry_limit": 2
+      }
+    },
+    "cache": {
+      "type": "blobcache"
+    }
+  },
+  "mode": "direct",
+  "digest_validate": false,
+  "iostats_files": false,
+  "enable_xattr": true,
+  "amplify_io": 1048576,
+  "fs_prefetch": {
+    "enable": true,
+    "threads_count": 8,
+    "merging_size": 1048576,
+    "prefetch_all": true
+  }
+}
