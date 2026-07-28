@@ -229,6 +229,8 @@ ExecStartPre=/usr/local/sbin/xolis-enable-containerd-import
 EOF
 
 if (( nydus_variable_count == ${#nydus_variables[@]} )); then
+  test -f /etc/eks/image-credential-provider/config.json
+  test -x /etc/eks/image-credential-provider/ecr-credential-provider
   snapshotter_archive="${work_directory}/nydus-snapshotter.tar.gz"
   daemon_archive="${work_directory}/nydus-daemon.tar.gz"
   download_and_verify "${NYDUS_SNAPSHOTTER_ARCHIVE_URL}" "${NYDUS_SNAPSHOTTER_ARCHIVE_SHA256}" "${snapshotter_archive}"

@@ -15,6 +15,12 @@ threads_number = 4
 [remote]
 convert_vpc_registry = false
 
+[remote.auth]
+enable_kubelet_credential_providers = true
+credential_provider_config = "/etc/eks/image-credential-provider/config.json"
+credential_provider_bin_dir = "/etc/eks/image-credential-provider"
+credential_renewal_interval = "4h"
+
 [snapshot]
 enable_kata_volume = true
 sync_remove = true
