@@ -49,6 +49,7 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("enable_kata_volume = true", snapshotter)
         self.assertIn("enable_kubelet_credential_providers = true", snapshotter)
         self.assertIn("credential_renewal_interval = \"4h\"", snapshotter)
+        self.assertIn("/etc/nydus/ecr-credential-provider-config.json", snapshotter)
 
     def test_nydus_profile_does_not_replace_the_oci_profile(self) -> None:
         oci = (ROOT / "deploy/xolis/python-profile.yaml").read_text(encoding="utf-8")

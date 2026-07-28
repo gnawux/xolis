@@ -159,6 +159,11 @@ build {
   }
 
   provisioner "file" {
+    source      = "files/ecr-credential-provider-config.json"
+    destination = "/tmp/ecr-credential-provider-config.json"
+  }
+
+  provisioner "file" {
     source      = "scripts/enable-containerd-import"
     destination = "/tmp/enable-containerd-import"
   }
