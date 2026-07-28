@@ -39,6 +39,13 @@ class AmiAssetTests(unittest.TestCase):
         )
         self.assertIn("/etc/xolis/nydus-version", installer)
         self.assertIn("nydus-snapshotter.service", installer)
+        containerd = (ROOT / "image/aws/files/containerd-xolis-kata.toml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('platform = "linux/amd64"', containerd)
+        self.assertIn('snapshotter = "nydus"', containerd)
+        self.assertIn("disable_snapshot_annotations = false", containerd)
+        self.assertIn("use_local_image_pull = true", containerd)
         self.assertIn("containerd-nydus-grpc", installer)
         self.assertIn("nydusd --version", installer)
         self.assertIn("/etc/eks/image-credential-provider/ecr-credential-provider", installer)
@@ -51,6 +58,11 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("enable_kubelet_credential_providers = true", snapshotter)
         self.assertIn("credential_renewal_interval = \"4h\"", snapshotter)
         self.assertIn("/etc/nydus/ecr-credential-provider-config.json", snapshotter)
+
+        daemon_config = (
+            ROOT / "image/aws/files/nydusd-config.fusedev.json"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"digest_validate": false', daemon_config)
 
     def test_nydus_profile_does_not_replace_the_oci_profile(self) -> None:
         oci = (ROOT / "deploy/xolis/python-profile.yaml").read_text(encoding="utf-8")

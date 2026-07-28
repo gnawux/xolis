@@ -242,6 +242,9 @@ resource "aws_launch_template" "sandbox" {
         certificateAuthority: ${aws_eks_cluster.this.certificate_authority[0].data}
         cidr: ${aws_eks_cluster.this.kubernetes_network_config[0].service_ipv4_cidr}
       kubelet:
+        config:
+          featureGates:
+            RuntimeClassInImageCriApi: true
         flags:
           - "--node-labels=xolis.io/kata-ready=true,node-role.xolis.io/sandbox=true"
           - "--register-with-taints=xolis.io/sandbox=true:NoSchedule"

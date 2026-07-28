@@ -3,9 +3,12 @@
   address = "/run/containerd-nydus/containerd-nydus-grpc.sock"
 
 [plugins.'io.containerd.cri.v1.images']
+  disable_snapshot_annotations = false
   discard_unpacked_layers = false
+  use_local_image_pull = true
 
 [plugins.'io.containerd.cri.v1.images'.runtime_platforms.xolis-kata-nydus]
+  platform = "linux/amd64"
   snapshotter = "nydus"
 
 [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata]

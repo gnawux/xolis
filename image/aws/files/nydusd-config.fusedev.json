@@ -13,7 +13,7 @@
     }
   },
   "mode": "direct",
-  "digest_validate": true,
+  "digest_validate": false,
   "iostats_files": false,
   "enable_xattr": true,
   "amplify_io": 1048576,
