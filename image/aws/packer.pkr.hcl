@@ -43,6 +43,12 @@ variable "kata_source_commit" {
   description = "Immutable kata-containers source commit used to build the runtime-rs Dragonball shim."
 }
 
+variable "reuse_existing_kata_runtime" {
+  type        = bool
+  description = "Reuse and validate Kata from an immutable Xolis source AMI instead of rebuilding it."
+  default     = false
+}
+
 variable "nydus_snapshotter_version" {
   type        = string
   description = "Optional pinned Nydus snapshotter release version, without a leading v. Leave empty for the Kata-only baseline."
@@ -163,6 +169,7 @@ build {
       "KATA_ARCHIVE_URL=${var.kata_archive_url}",
       "KATA_ARCHIVE_SHA256=${var.kata_archive_sha256}",
       "KATA_SOURCE_COMMIT=${var.kata_source_commit}",
+      "REUSE_EXISTING_KATA_RUNTIME=${var.reuse_existing_kata_runtime}",
       "NYDUS_SNAPSHOTTER_VERSION=${var.nydus_snapshotter_version}",
       "NYDUS_SNAPSHOTTER_ARCHIVE_URL=${var.nydus_snapshotter_archive_url}",
       "NYDUS_SNAPSHOTTER_ARCHIVE_SHA256=${var.nydus_snapshotter_archive_sha256}",

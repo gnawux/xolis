@@ -21,7 +21,10 @@ The builder intentionally requires complete immutable artifact inputs instead of
 - Public build-subnet ID from the lab VPC.
 - Kata Containers static archive URL and SHA-256.
 - Kata Containers source commit, fixed to the commit behind the chosen release tag. The builder verifies the exact checkout and generates the Dragonball runtime configuration from it.
-- Optional Nydus static archive URL and SHA-256. Leave all Nydus inputs empty for the initial Kata-only baseline.
+- Optional Nydus snapshotter and image-service archive URLs, versions, and
+  SHA-256 values. Leave all six Nydus inputs empty for the Kata-only baseline.
+  The snapshotter archive provides `containerd-nydus-grpc`; the separate
+  image-service archive provides `nydusd` and `nydus-image`.
 
 Create a local variable file from the example and fill it with release URLs and checksums verified from the upstream release assets:
 
@@ -29,6 +32,12 @@ Create a local variable file from the example and fill it with release URLs and 
     packer init packer.pkr.hcl
     packer validate -var-file=xolis-sandbox.pkrvars.hcl packer.pkr.hcl
     packer build -var-file=xolis-sandbox.pkrvars.hcl packer.pkr.hcl
+
+For an iterative Nydus-only rebuild, `source_ami_id` may identify an immutable
+Xolis AMI whose `KataVersion` and `KataCommit` tags exactly match the requested
+inputs. Set `reuse_existing_kata_runtime = true` only in that case. The build
+validates the installed Kata binaries and Dragonball configuration before
+installing Nydus; the default remains a complete Kata rebuild from the EKS AMI.
 
 Record the AMI ID in `infra/aws/minimal/terraform.tfvars` as `sandbox_ami_id`, then run `tofu plan` and `tofu apply`. The ASG will remain at zero until a Lab cycle starts it.
 
@@ -67,9 +76,11 @@ baseline; its performance path is a separate follow-up.
 ## Validation Boundary
 
 The smoke test uses `RuntimeClass/xolis-kata`, which selects the ordinary
-`xolis-kata` handler. Supplying all three pinned Nydus inputs additionally
-installs the snapshotter, registers `xolis-kata-nydus`, and records the pinned
-version in `/etc/xolis/nydus-version`. It does not change the ordinary handler.
+`xolis-kata` handler. Supplying all six pinned Nydus inputs additionally
+installs the snapshotter and daemon, registers `xolis-kata-nydus`, and records
+both pinned versions in `/etc/xolis/nydus-version`. The snapshotter reuses the
+EKS AMI's ECR credential provider and renews credentials for active mounts. It
+does not change the ordinary handler.
 
 The Nydus profile must use an image that includes Nydus bootstrap metadata.
 Merely selecting the Nydus handler does not convert an ordinary OCI image. Keep

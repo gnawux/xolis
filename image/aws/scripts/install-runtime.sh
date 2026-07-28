@@ -119,28 +119,37 @@ install_release_root() {
   cp -a "${release_root}/." "${destination}/"
 }
 
-kata_archive="${work_directory}/kata-static.tar.zst"
+kata_dragonball_config="/opt/kata/share/defaults/kata-containers/runtime-rs/configuration-dragonball.toml"
 
-download_and_verify "${KATA_ARCHIVE_URL}" "${KATA_ARCHIVE_SHA256}" "${kata_archive}"
+if [[ "${REUSE_EXISTING_KATA_RUNTIME:-false}" == "true" ]]; then
+  test -x /opt/kata/bin/kata-runtime
+  test -x /opt/kata/runtime-rs/bin/containerd-shim-kata-v2
+  test -f "${kata_dragonball_config}"
+  grep -q '^\[hypervisor\.dragonball\]' "${kata_dragonball_config}"
+  echo "Reusing the validated Kata runtime from the immutable source AMI"
+else
+  kata_archive="${work_directory}/kata-static.tar.zst"
 
-extract_archive "${kata_archive}" "${work_directory}/kata"
-install_release_root "${work_directory}/kata" "kata-runtime" "/opt/kata"
+  download_and_verify "${KATA_ARCHIVE_URL}" "${KATA_ARCHIVE_SHA256}" "${kata_archive}"
 
-kata_source_directory="${work_directory}/kata-containers"
-git clone --filter=blob:none --no-checkout https://github.com/kata-containers/kata-containers.git "${kata_source_directory}"
-git -C "${kata_source_directory}" checkout --detach "${KATA_SOURCE_COMMIT}"
-if [[ "$(git -C "${kata_source_directory}" rev-parse HEAD)" != "${KATA_SOURCE_COMMIT}" ]]; then
-  echo "Kata source checkout did not resolve to ${KATA_SOURCE_COMMIT}" >&2
-  exit 1
-fi
+  extract_archive "${kata_archive}" "${work_directory}/kata"
+  install_release_root "${work_directory}/kata" "kata-runtime" "/opt/kata"
+
+  kata_source_directory="${work_directory}/kata-containers"
+  git clone --filter=blob:none --no-checkout https://github.com/kata-containers/kata-containers.git "${kata_source_directory}"
+  git -C "${kata_source_directory}" checkout --detach "${KATA_SOURCE_COMMIT}"
+  if [[ "$(git -C "${kata_source_directory}" rev-parse HEAD)" != "${KATA_SOURCE_COMMIT}" ]]; then
+    echo "Kata source checkout did not resolve to ${KATA_SOURCE_COMMIT}" >&2
+    exit 1
+  fi
 
 # AWS M8i nested KVM exposes a modern XSAVE feature set (including AVX-512 and
 # AMX) through KVM_GET_SUPPORTED_CPUID. Dragonball 4.0.0 passes those leaves to
 # the guest but does not provide a compatible CR4/XCR0 virtualization path.
 # The Kata guest kernel then faults in XSETBV before the agent starts. Keep the
 # ordinary x86 CPU features and mask only the xstate-dependent CPUID leaves.
-dragonball_cpuid_source="${kata_source_directory}/src/dragonball/crates/dbs_arch/src/x86_64/cpuid/transformer/intel.rs"
-python3 - "${dragonball_cpuid_source}" <<'PY'
+  dragonball_cpuid_source="${kata_source_directory}/src/dragonball/crates/dbs_arch/src/x86_64/cpuid/transformer/intel.rs"
+  python3 - "${dragonball_cpuid_source}" <<'PY'
 from pathlib import Path
 import sys
 
@@ -180,8 +189,8 @@ if old not in source:
 path.write_text(source.replace(old, new), encoding="utf-8")
 PY
 
-curl --fail --location --retry 3 --proto '=https' --tlsv1.2 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.95
-source /root/.cargo/env
+  curl --fail --location --retry 3 --proto '=https' --tlsv1.2 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.95
+  source /root/.cargo/env
 # Kata defaults to a musl target, but its upstream runtime-rs guide documents
 # musl as optional. AL2023 does not ship a musl-gcc package, so build the
 # supported GNU target for the EKS node AMI instead.
@@ -190,29 +199,29 @@ source /root/.cargo/env
 # Keep Cargo's extremely verbose output off the Session Manager SSH tunnel.
 # Packer can otherwise stall after a successful remote build while draining
 # that output. Preserve the last lines when a build does fail.
-runtime_build_log="${work_directory}/runtime-rs-build.log"
-CARGO_BUILD_JOBS=2 make -C "${kata_source_directory}/src/runtime-rs" LIBC=gnu HYPERVISOR=dragonball PREFIX=/opt/kata install >"${runtime_build_log}" 2>&1 &
-runtime_build_pid=$!
-(
-  while kill -0 "${runtime_build_pid}" 2>/dev/null; do
-    sleep 30
-    if kill -0 "${runtime_build_pid}" 2>/dev/null; then
-      echo "Kata runtime-rs Dragonball build is still running"
-    fi
-  done
-) &
-runtime_build_heartbeat_pid=$!
-if ! wait "${runtime_build_pid}"; then
+  runtime_build_log="${work_directory}/runtime-rs-build.log"
+  CARGO_BUILD_JOBS=2 make -C "${kata_source_directory}/src/runtime-rs" LIBC=gnu HYPERVISOR=dragonball PREFIX=/opt/kata install >"${runtime_build_log}" 2>&1 &
+  runtime_build_pid=$!
+  (
+    while kill -0 "${runtime_build_pid}" 2>/dev/null; do
+      sleep 30
+      if kill -0 "${runtime_build_pid}" 2>/dev/null; then
+        echo "Kata runtime-rs Dragonball build is still running"
+      fi
+    done
+  ) &
+  runtime_build_heartbeat_pid=$!
+  if ! wait "${runtime_build_pid}"; then
+    wait "${runtime_build_heartbeat_pid}" || true
+    tail -n 200 "${runtime_build_log}" >&2
+    exit 1
+  fi
   wait "${runtime_build_heartbeat_pid}" || true
-  tail -n 200 "${runtime_build_log}" >&2
-  exit 1
-fi
-wait "${runtime_build_heartbeat_pid}" || true
 
-kata_dragonball_config="/opt/kata/share/defaults/kata-containers/runtime-rs/configuration-dragonball.toml"
-if [[ ! -f "${kata_dragonball_config}" ]]; then
-  echo "The Kata runtime-rs Dragonball build did not generate ${kata_dragonball_config}" >&2
-  exit 1
+  if [[ ! -f "${kata_dragonball_config}" ]]; then
+    echo "The Kata runtime-rs Dragonball build did not generate ${kata_dragonball_config}" >&2
+    exit 1
+  fi
 fi
 
 install -d -m 0755 /usr/local/bin /usr/local/sbin /etc/containerd/conf.d /etc/kata-containers /etc/nydus

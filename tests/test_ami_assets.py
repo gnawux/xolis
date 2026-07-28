@@ -21,6 +21,8 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("configuration-dragonball.toml", installer)
         self.assertIn("xolis-enable-containerd-import", installer)
         self.assertIn("containerd.service.d/10-xolis-runtime.conf", installer)
+        self.assertIn("REUSE_EXISTING_KATA_RUNTIME", installer)
+        self.assertIn("Reusing the validated Kata runtime", installer)
 
     def test_nydus_handler_is_opt_in(self) -> None:
         configuration = (ROOT / "image/aws/files/containerd-xolis-kata.toml").read_text(

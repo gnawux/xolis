@@ -9,6 +9,10 @@ kata_archive_url    = "https://github.com/kata-containers/kata-containers/releas
 kata_archive_sha256 = "2c3b9dfeba355582b40aee462b12916c9740654d0230f696adf719d67b063a8c"
 kata_source_commit  = "cf82bb35c80320178bf7570252fe75d6fb263209"
 
+# Set true only when source_ami_id is an immutable Xolis AMI with the same
+# KataVersion and KataCommit tags. The build validates its installed runtime.
+reuse_existing_kata_runtime = false
+
 # Leave these empty for the Kata-only baseline. Set all six values together
 # when enabling pinned Nydus snapshotter and image-service binaries.
 nydus_snapshotter_version        = ""
