@@ -11,6 +11,7 @@ import json
 import os
 import secrets
 import select
+import shlex
 import shutil
 import signal
 import socket
@@ -408,14 +409,24 @@ def send_json(connection: socket.socket, value: dict[str, Any]) -> None:
     connection.sendall(encode_frame(json.dumps(value, separators=(",", ":")).encode()))
 
 
-def interactive_session(port: int, tenant: str, sandbox_id: str, ttl_seconds: int) -> int:
+def interactive_session(
+    port: int,
+    tenant: str,
+    sandbox_id: str,
+    ttl_seconds: int,
+    hermes_model: str | None = None,
+    hermes_provider: str | None = None,
+) -> int:
     connection = websocket_connect(port, tenant, sandbox_id)
     rows, columns = terminal_size()
+    command = ["hermes"]
+    if hermes_model is not None and hermes_provider is not None:
+        command.extend(("--model", hermes_model, "--provider", hermes_provider))
     send_json(
         connection,
         {
             "type": "start",
-            "command": "hermes",
+            "command": shlex.join(command),
             "ttl_seconds": ttl_seconds,
             "rows": rows,
             "columns": columns,
@@ -488,6 +499,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sandbox-ready-timeout", type=int, default=180)
     parser.add_argument("--warm-pool-timeout", type=int, default=300)
     parser.add_argument(
+        "--hermes-model",
+        help="Model ID passed to Hermes for this ephemeral session",
+    )
+    parser.add_argument(
+        "--hermes-provider",
+        help="Provider passed to Hermes for this ephemeral session",
+    )
+    parser.add_argument(
         "--egress-manifest",
         type=Path,
         help="Reviewed NetworkPolicy that permits only the selected model provider",
@@ -504,6 +523,8 @@ def main() -> int:
     args = parse_args()
     if not 1 <= args.session_ttl <= 7200:
         raise DemoError("--session-ttl must be between 1 and 7200 seconds")
+    if bool(args.hermes_model) != bool(args.hermes_provider):
+        raise DemoError("--hermes-model and --hermes-provider must be supplied together")
     profile, warm_pool, runtime_class = MODES[args.image_mode]
     image_reference = args.image_reference or DEFAULT_IMAGES[args.image_mode]
     original_api: dict[str, str | None] | None = None
@@ -537,9 +558,14 @@ def main() -> int:
         status("Creating a sandbox from the warm pool")
         sandbox_id = client.create(profile, args.session_ttl)
         client.wait_running(sandbox_id, args.sandbox_ready_timeout)
-        status(f"Starting Hermes in sandbox {sandbox_id}; press Ctrl-C to exit")
+        status(f"Starting Hermes in sandbox {sandbox_id}; type /quit to exit")
         return interactive_session(
-            forwarding.port, args.tenant, sandbox_id, args.session_ttl
+            forwarding.port,
+            args.tenant,
+            sandbox_id,
+            args.session_ttl,
+            args.hermes_model,
+            args.hermes_provider,
         )
     finally:
         if client is not None and sandbox_id is not None:

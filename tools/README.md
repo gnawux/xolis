@@ -102,3 +102,9 @@ warm pool to zero, and restores the previous API environment when the session
 ends. Pass `--keep-prepared` to leave the API and warm pool ready for another
 demo. Run `python3 tools/hermes_demo.py --help` for all timeout and image
 options.
+
+For an ephemeral OpenAI-compatible endpoint, store `OPENAI_API_KEY` and
+`CUSTOM_BASE_URL` in the credential Secret, then pass both
+`--hermes-provider custom` and `--hermes-model PROVIDER/MODEL`. Supplying the
+provider and model on the session command avoids writing a persistent Hermes
+configuration into the disposable sandbox workspace.

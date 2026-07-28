@@ -65,6 +65,12 @@ The default cleanup deletes the sandbox, scales its warm pool to zero, and
 restores the previous `xolis-api` environment. Add `--keep-prepared` when
 several consecutive demos should share the warmed environment.
 
+For a custom OpenAI-compatible model service, place `OPENAI_API_KEY` and
+`CUSTOM_BASE_URL` in the runtime Secret and add both
+`--hermes-provider custom` and `--hermes-model PROVIDER/MODEL` to the demo
+command. This supplies the model selection to the fresh Hermes process without
+persisting endpoint configuration in the ephemeral workspace.
+
 For a manual client, create a sandbox, connect to
 `/v1/sandboxes/{id}/sessions` with the tenant header, and send this first
 WebSocket message:

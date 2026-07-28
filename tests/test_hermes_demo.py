@@ -30,6 +30,48 @@ class WebSocketFrameTests(unittest.TestCase):
         self.assertEqual(opcode, 1)
         self.assertEqual(decoded, payload)
 
+    @mock.patch.object(hermes_demo, "terminal_size", return_value=(30, 120))
+    @mock.patch.object(hermes_demo, "websocket_connect")
+    @mock.patch.object(hermes_demo, "send_json")
+    @mock.patch.object(
+        hermes_demo,
+        "read_frame",
+        return_value=(1, b'{"type":"exit","exit_code":0}'),
+    )
+    @mock.patch.object(hermes_demo.select, "select")
+    @mock.patch.object(hermes_demo.signal, "signal", return_value=mock.sentinel.handler)
+    def test_session_passes_ephemeral_provider_and_model(
+        self,
+        signal_mock,
+        select_mock,
+        _read_frame,
+        send_json,
+        websocket_connect,
+        _terminal_size,
+    ) -> None:
+        connection = mock.MagicMock()
+        connection.fileno.return_value = 99
+        websocket_connect.return_value = connection
+        select_mock.return_value = ([connection], [], [])
+        with mock.patch.object(
+            hermes_demo.sys.stdin, "fileno", return_value=98
+        ), mock.patch.object(hermes_demo.os, "isatty", return_value=False):
+            result = hermes_demo.interactive_session(
+                8080,
+                "tenant",
+                "sandbox",
+                900,
+                "openai/gpt-5.4",
+                "custom",
+            )
+        self.assertEqual(result, 0)
+        start_message = send_json.call_args_list[0].args[1]
+        self.assertEqual(
+            start_message["command"],
+            "hermes --model openai/gpt-5.4 --provider custom",
+        )
+        signal_mock.assert_called()
+
     def test_large_frame_round_trips(self) -> None:
         left, right = socket.socketpair()
         sender = threading.Thread(
