@@ -150,46 +150,6 @@ Expected outcome:
 - measured success rate, cleanup reliability, resource density, and cost per
   successful sandbox.
 
-### Priority 1: Evaluate Nydus Without Replacing the Stable OCI Path
-
-The optional path is now implemented and validated with Kata 4.0.0,
-nydus-snapshotter 0.15.15, nydusd 2.4.4, and the Hermes Agent image. The final
-validated AMI is `ami-0ec0906871c3a9d9b`. Ordinary OCI remains the default.
-
-Containerd 2.2.4 requires all of the following for runtime-specific Nydus
-pulls: kubelet `RuntimeClassInImageCriApi`, a CRI image-service
-`runtime_platforms` entry with `linux/amd64` and the `nydus` snapshotter, local
-image pull mode, and snapshot annotations. RAFS v6 also requires
-`digest_validate=false` with the tested nydusd release.
-
-One fresh-node sample per mode produced the following bounded evidence. Nydus
-ran before OCI on the same node, so registry, host, and ordering effects are not
-controlled. These results establish correctness and identify current overhead;
-they are not a benchmark or SLA claim.
-
-| Hermes image mode | Image pull | Sandbox Ready | First command | Explicit cleanup |
-| --- | ---: | ---: | ---: | ---: |
-| Nydus | 0.585 s | 16.601 s | 0.186 s | 3.806 s |
-| OCI | 4.696 s | 10.415 s | 0.178 s | 8.605 s |
-
-Nydus reduced the observed pull time but did not reduce end-to-end Ready time
-in this sample. nydusd startup, remote mount, and Kata integration overhead
-must be profiled before making a performance claim. Repeated fresh/cached tests
-and larger representative images remain follow-up work.
-
-Expected outcome:
-
-- less image data downloaded before execution and lower cold Ready latency for
-  large or uncached images;
-- the largest benefit on fresh nodes and large images, with limited benefit for
-  the current small cached Python image; and
-- an initial experimental target of a 30% or greater reduction in uncached
-  image-to-Ready time for a representative large image. This is a test target,
-  not a forecast or current capability.
-
-Dragonfly distribution and cache benchmarks should follow only after a single
-node Nydus path is stable.
-
 ### Priority 1: Productize Access and Multi-Tenant Policy
 
 Add OIDC authentication, tenant quotas, rate limits, audit export, and a Gateway
@@ -203,23 +163,6 @@ Expected outcome:
 - predictable tenant resource consumption and clearer auditability; and
 - no expected sandbox startup improvement, because this work targets security
   and operability rather than runtime latency.
-
-### Priority 1: Streaming and Interactive Agent Workloads
-
-The implementation now includes backward-compatible SSE command
-streaming and a tenant-scoped WebSocket/PTTY protocol with input, resize,
-cancel, close, TTL, output bounds, and process-group cleanup. An opt-in Hermes
-Agent image and profile use those general primitives without changing the
-default Python profile. The image has been published and validated without
-model credentials: `hermes --help`, ordered SSE output, PTY input/output, Kata
-placement, file operations, egress denial, and explicit cleanup all passed.
-Provider-specific credentials and reviewed FQDN egress remain demo-time work.
-
-Expected outcome:
-
-- useful feedback before long commands complete;
-- lower perceived latency even when Sandbox Ready time is unchanged; and
-- broader compatibility with coding agents and tool-execution frameworks.
 
 ### Priority 2: Capacity Automation and Production AWS Topology
 

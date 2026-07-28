@@ -48,7 +48,24 @@ command timeout of at least 900 seconds. For Nydus, use
 
 ## Run the Demo
 
-Create a sandbox, connect to
+The repository demo tool performs the profile setup, warmup, sandbox creation,
+and interactive terminal attachment in one command:
+
+    python3 tools/hermes_demo.py \
+        --egress-manifest /path/to/reviewed-provider-egress.yaml
+
+For the Nydus image path, add `--image-mode nydus`. The egress manifest is not
+stored in this repository because it must match the chosen provider and the
+cluster's CNI behavior. Omitting it is useful for validating that Hermes starts,
+but model calls remain blocked by the profile's DNS-only policy. The tool does
+not create, inspect, or print model credentials; it requires the existing
+`hermes-agent-credentials` Secret.
+
+The default cleanup deletes the sandbox, scales its warm pool to zero, and
+restores the previous `xolis-api` environment. Add `--keep-prepared` when
+several consecutive demos should share the warmed environment.
+
+For a manual client, create a sandbox, connect to
 `/v1/sandboxes/{id}/sessions` with the tenant header, and send this first
 WebSocket message:
 

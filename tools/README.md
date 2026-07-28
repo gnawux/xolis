@@ -80,3 +80,25 @@ returns the warm pool and sandbox ASG to zero. It waits for
 `.status.readyReplicas` before every warm sample so replenishment time is not
 mistaken for claim latency. Per-sample JSON files and `benchmark-summary.json`
 record minimum, mean, median, and maximum metrics for both modes.
+
+## Hermes Interactive Demo
+
+`hermes_demo.py` prepares the validated Hermes profile, warms one sandbox,
+creates a claim through `xolis-api`, and attaches the local terminal to an
+interactive Hermes process:
+
+    python3 tools/hermes_demo.py \
+        --egress-manifest /path/to/reviewed-provider-egress.yaml
+
+The cluster must already contain `Secret/hermes-agent-credentials` in
+`xolis-sandboxes`. The tool verifies the Secret but never reads or prints its
+values. The egress manifest must allow TCP 443 only to the selected model
+provider; without it, the checked-in profile permits DNS only and Hermes can
+start but cannot contact a model service.
+
+Use `--image-mode nydus` to apply and use the opt-in Nydus RuntimeClass and
+validated Nydus image. By default the tool deletes the demo sandbox, scales the
+warm pool to zero, and restores the previous API environment when the session
+ends. Pass `--keep-prepared` to leave the API and warm pool ready for another
+demo. Run `python3 tools/hermes_demo.py --help` for all timeout and image
+options.

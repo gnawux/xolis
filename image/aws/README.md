@@ -102,3 +102,27 @@ One fresh-node sample pulled it in 0.585 seconds and reached Ready in 16.601
 seconds. The corresponding OCI sample pulled in 4.696 seconds and reached Ready
 in 10.415 seconds. These single, ordered samples are diagnostic only; they show
 that current Nydus mount startup can outweigh the pull reduction.
+
+## Nydus Integration Findings
+
+The first AWS integration required several settings that were not apparent from
+the basic conversion and snapshotter workflow. This table records the observed
+boundary so future upgrades can distinguish Nydus behavior from Kubernetes,
+containerd, and cloud-registry integration.
+
+| Observed issue | Required action in the validated configuration | Most relevant upstream area |
+| --- | --- | --- |
+| `nydusify check` with both source and target reported differences for `security.selinux` attributes added by the builder host. | Validate the target manifest and bootstrap with `nydusify check --target`, then validate runtime contents on the Nydus-enabled SELinux node. | Nydus tooling: make host-added xattrs easier to exclude or identify in comparison output. |
+| The static conversion workflow needed `nydusd` even though conversion primarily uses `nydusify` and `nydus-image`. | Install `nydusd` from the pinned image-service archive on the builder. | Nydus release packaging and `nydusify check` dependency documentation. |
+| A private ECR target converted successfully only after the builder could read image manifests as well as upload layers. | Grant the image builder `ecr:BatchGetImage` and authenticate before conversion. | AWS/ECR integration documentation rather than the Nydus runtime. |
+| The snapshotter could not reuse private ECR credentials without its own credential-provider configuration. | Enable kubelet credential providers in the snapshotter, provide a complete ECR `CredentialProviderConfig`, point it at the EKS provider binary, and renew credentials for active mounts. | Nydus snapshotter documentation and diagnostics for private registries. |
+| Selecting the Nydus Kata runtime handler did not by itself route CRI image pulls to Nydus on containerd 2.2. | Enable kubelet `RuntimeClassInImageCriApi`; add a `runtime_platforms` mapping with both `platform = "linux/amd64"` and `snapshotter = "nydus"`. | Kubernetes/containerd CRI integration, with a useful Nydus deployment prerequisite check. |
+| Containerd's default Transfer Service pull path did not preserve the annotations needed by the Nydus snapshotter. | Set `use_local_image_pull = true`, keep snapshot annotations enabled, and retain unpacked layers for this runtime-specific path. | Containerd image-service integration; Nydus could detect and explain missing annotations earlier. |
+| nydusd 2.4.4 rejected digest validation for the tested RAFS v6 image. | Set `digest_validate=false` for this pinned compatibility combination. | Nydus daemon: RAFS v6 integrity-validation support or a clearer compatibility error and version matrix. |
+| Nydus reduced the measured pull phase but the sandbox reached Ready later than OCI in the single ordered sample. | Treat the result as diagnostic and profile daemon startup, remote mount, Kata volume setup, and first reads before claiming a latency improvement. | Nydus observability: expose phase-level mount and prefetch timing that can be correlated with CRI events. |
+
+The strongest Nydus-specific feedback candidates are the SELinux comparison
+false positive, the implicit `nydusd` validation dependency, RAFS v6 digest
+validation compatibility, and phase-level startup diagnostics. RuntimeClass
+routing and Transfer Service behavior primarily belong to Kubernetes and
+containerd, while ECR IAM belongs to the deployment integration.

@@ -25,11 +25,12 @@ boundary, and roadmap are described in
 The current AWS lab includes OpenTofu infrastructure, a disposable test-cycle
 tool, a custom Kata 4.0.0 runtime-rs and Dragonball AMI, Agent Sandbox v0.5.3,
 and the Rust Xolis API with a bounded Python runtime. The automated service
-acceptance test validates Kata placement, command and file operations, tenant
-isolation, idempotency, request limits, denied public egress, explicit deletion,
-and TTL cleanup. The Lab tool also automates repeatable cold-versus-warm
-`SandboxWarmPool` measurements with structured JSON reports. Nydus remains an
-optional performance follow-up. See
+acceptance test validates Kata placement, buffered and streaming commands,
+interactive PTY sessions, file operations, tenant isolation, request limits,
+network policy, deletion, and TTL cleanup. The Lab tool also automates
+cold-versus-warm `SandboxWarmPool` measurements with structured JSON reports.
+An independently selected Nydus path and Hermes Agent profile have passed
+bounded single-node validation; ordinary OCI remains the default. See
 [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for prerequisites and test
 workflows.
 
