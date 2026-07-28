@@ -32,6 +32,7 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("runtimes.xolis-kata-nydus]", configuration)
         self.assertIn('snapshotter = "nydus"', configuration)
         self.assertIn("[proxy_plugins.nydus]", configuration)
+        self.assertIn("runtime_platforms.xolis-kata-nydus", configuration)
 
         installer = (ROOT / "image/aws/scripts/install-runtime.sh").read_text(
             encoding="utf-8"

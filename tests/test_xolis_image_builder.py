@@ -13,6 +13,10 @@ SPEC.loader.exec_module(MODULE)
 
 
 class BuildCommandTests(unittest.TestCase):
+    def test_aws_cli_can_use_environment_credentials(self) -> None:
+        client = MODULE.AwsCli("", "ap-northeast-1")
+        self.assertEqual(client.base, ["aws", "--region", "ap-northeast-1"])
+
     def test_commands_build_all_images_and_push_private_references(self) -> None:
         registry = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com"
         commands = MODULE.build_commands(

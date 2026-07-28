@@ -5,6 +5,9 @@
 [plugins.'io.containerd.cri.v1.images']
   discard_unpacked_layers = false
 
+[plugins.'io.containerd.cri.v1.images'.runtime_platforms.xolis-kata-nydus]
+  snapshotter = "nydus"
+
 [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata]
   runtime_type = "io.containerd.kata.v2"
 

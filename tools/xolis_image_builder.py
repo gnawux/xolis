@@ -54,7 +54,10 @@ class AwsCommandError(RuntimeError):
 
 class AwsCli:
     def __init__(self, profile: str, region: str) -> None:
-        self.base = ["aws", "--profile", profile, "--region", region]
+        self.base = ["aws"]
+        if profile:
+            self.base.extend(("--profile", profile))
+        self.base.extend(("--region", region))
 
     def run(self, arguments: Sequence[str], *, json_output: bool = False) -> Any:
         command = [*self.base, *arguments]
