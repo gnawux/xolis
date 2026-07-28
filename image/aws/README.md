@@ -68,10 +68,11 @@ through an undocumented runtime override, because the Dragonball configuration
 does not expose a CPU feature filter. Re-evaluate and remove the patch when an
 upstream Dragonball release provides a compatible nested-KVM xstate path.
 
-The baseline was validated on an AWS M8i self-managed EKS node: a pod using
-`RuntimeClass/xolis-kata` reached Ready, and the test cycle then deleted the pod
-and returned the sandbox Auto Scaling group to zero. Nydus was disabled for this
-baseline; its performance path is a separate follow-up.
+The ordinary baseline and optional Nydus path were validated on an AWS M8i
+self-managed EKS node. The final 2026-07-28 comparison AMI is
+`ami-0ec0906871c3a9d9b`; both `RuntimeClass/xolis-kata` and
+`RuntimeClass/xolis-kata-nydus` completed the service smoke test, and the Auto
+Scaling group was returned to zero afterward.
 
 ## Validation Boundary
 
@@ -82,7 +83,22 @@ both pinned versions in `/etc/xolis/nydus-version`. The snapshotter reuses the
 EKS AMI's ECR credential provider and renews credentials for active mounts. It
 does not change the ordinary handler.
 
+Containerd 2.2 requires kubelet to enable `RuntimeClassInImageCriApi` so the
+runtime handler reaches `PullImageRequest`. The CRI image-service fragment maps
+`xolis-kata-nydus` to `linux/amd64` and the `nydus` snapshotter. It also uses
+local image pull with snapshot annotations enabled; the default Transfer
+Service unpack configuration does not include Nydus. The tested RAFS v6 image
+uses `digest_validate=false` because nydusd 2.4.4 rejects integrity validation
+for RAFS v6.
+
 The Nydus profile must use an image that includes Nydus bootstrap metadata.
 Merely selecting the Nydus handler does not convert an ordinary OCI image. Keep
 the digest-pinned OCI image as the fallback while publishing and validating a
 separately tagged Nydus image for `python-nydus-v1`.
+
+The final Hermes validation used Nydus pull digest
+`sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`.
+One fresh-node sample pulled it in 0.585 seconds and reached Ready in 16.601
+seconds. The corresponding OCI sample pulled in 4.696 seconds and reached Ready
+in 10.415 seconds. These single, ordered samples are diagnostic only; they show
+that current Nydus mount startup can outweigh the pull reduction.

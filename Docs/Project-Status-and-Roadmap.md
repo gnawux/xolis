@@ -1,7 +1,7 @@
 # Project Status and Roadmap
 
 This document summarizes the Xolis implementation status, measured behavior,
-current availability boundary, and prioritized roadmap as of 2026-07-27.
+current availability boundary, and prioritized roadmap as of 2026-07-28.
 
 The `v0.1.0` tag identifies the first validated MVP. Current `main` adds the
 automated service lifecycle and cold-versus-warm benchmark workflow described
@@ -24,8 +24,9 @@ The AWS lab currently provides:
 - Amazon VPC CNI NetworkPolicy enforcement for sandbox traffic isolation.
 - Immutable, scan-on-push private ECR repositories for Xolis images.
 
-Nydus is supported by the AMI build as an optional input, but it is disabled in
-the validated baseline. The current service uses ordinary OCI images.
+The validated AMI now also contains an opt-in Nydus path. Ordinary OCI remains
+the default and fallback; Nydus requires the separate `xolis-kata-nydus`
+RuntimeClass and an image converted with Nydus metadata.
 
 ### Delivered Service Components
 
@@ -36,7 +37,7 @@ The functional MVP includes:
 | Lifecycle API | Kubernetes Agent Sandbox v0.5.3 with `SandboxTemplate`, `SandboxWarmPool`, and `SandboxClaim`. |
 | Public service boundary | Rust `xolis-api` using Axum, Tokio, and kube-rs. |
 | Request routing | Pinned Agent Sandbox Go router. |
-| Initial runtime | Bounded Python runtime with command execution and file operations under `/workspace`. |
+| Initial runtime | Bounded Python runtime with buffered and SSE command execution, WebSocket/PTTY sessions, and file operations under `/workspace`. |
 | Isolation | Kata runtime-rs and Dragonball on a dedicated labelled and tainted node. |
 | Network policy | Default deny, DNS-only sandbox egress, and router-only runtime ingress. |
 | Resource policy | CPU, memory, ephemeral storage, upload, output, command-time, and TTL limits. |
@@ -122,8 +123,9 @@ Important current limitations are:
 - header-based lab tenant identity rather than OIDC authentication;
 - no public Gateway API or load-balanced service endpoint;
 - no persistent workspace, suspend/resume, or VM checkpoint;
-- no interactive terminal, streaming output, or inbound sandbox service;
-- no Nydus or Dragonfly acceleration in the validated baseline; and
+- no inbound sandbox service or externally exposed interactive endpoint;
+- Nydus is validated only as an opt-in single-node comparison path, and
+  Dragonfly distribution is not implemented; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -150,10 +152,30 @@ Expected outcome:
 
 ### Priority 1: Evaluate Nydus Without Replacing the Stable OCI Path
 
-Build a second, version-pinned AMI and runtime image path with the Nydus
-snapshotter. Compare ordinary OCI and Nydus on fresh nodes, cached nodes, and
-larger realistic agent images. Preserve ordinary OCI as the fallback until
-compatibility and cleanup behavior are proven.
+The optional path is now implemented and validated with Kata 4.0.0,
+nydus-snapshotter 0.15.15, nydusd 2.4.4, and the Hermes Agent image. The final
+validated AMI is `ami-0ec0906871c3a9d9b`. Ordinary OCI remains the default.
+
+Containerd 2.2.4 requires all of the following for runtime-specific Nydus
+pulls: kubelet `RuntimeClassInImageCriApi`, a CRI image-service
+`runtime_platforms` entry with `linux/amd64` and the `nydus` snapshotter, local
+image pull mode, and snapshot annotations. RAFS v6 also requires
+`digest_validate=false` with the tested nydusd release.
+
+One fresh-node sample per mode produced the following bounded evidence. Nydus
+ran before OCI on the same node, so registry, host, and ordering effects are not
+controlled. These results establish correctness and identify current overhead;
+they are not a benchmark or SLA claim.
+
+| Hermes image mode | Image pull | Sandbox Ready | First command | Explicit cleanup |
+| --- | ---: | ---: | ---: | ---: |
+| Nydus | 0.585 s | 16.601 s | 0.186 s | 3.806 s |
+| OCI | 4.696 s | 10.415 s | 0.178 s | 8.605 s |
+
+Nydus reduced the observed pull time but did not reduce end-to-end Ready time
+in this sample. nydusd startup, remote mount, and Kata integration overhead
+must be profiled before making a performance claim. Repeated fresh/cached tests
+and larger representative images remain follow-up work.
 
 Expected outcome:
 
@@ -184,13 +206,14 @@ Expected outcome:
 
 ### Priority 1: Streaming and Interactive Agent Workloads
 
-The local implementation now includes backward-compatible SSE command
+The implementation now includes backward-compatible SSE command
 streaming and a tenant-scoped WebSocket/PTTY protocol with input, resize,
 cancel, close, TTL, output bounds, and process-group cleanup. An opt-in Hermes
-Agent image and profile template use those general primitives without changing
-the default Python profile. Building the Hermes image, adding provider-specific
-FQDN egress, and running the documented fresh-sandbox demo remain deployment
-validation work.
+Agent image and profile use those general primitives without changing the
+default Python profile. The image has been published and validated without
+model credentials: `hermes --help`, ordered SSE output, PTY input/output, Kata
+placement, file operations, egress denial, and explicit cleanup all passed.
+Provider-specific credentials and reviewed FQDN egress remain demo-time work.
 
 Expected outcome:
 
@@ -238,10 +261,10 @@ multi-tenant access controls, or reliability baseline.
 
 The next milestone should combine two bounded deliverables:
 
-1. Implement Nydus as an optional comparison path while retaining the ordinary
-   OCI profile as the validated default and fallback.
-2. Add streaming command output and cancellation, then use the same primitives
-   for an interactive Hermes Agent demonstration.
+1. Repeat the optional OCI/Nydus comparison on controlled fresh and cached
+   nodes, and profile the Nydus mount path before drawing performance conclusions.
+2. Add reviewed provider-specific egress for a credentialed Hermes Agent demo;
+   keep credentials out of images and repository content.
 
 This sequence creates two visible product capabilities while preserving the
 validated Kata and ordinary-OCI MVP. Statistically useful baseline, concurrency,

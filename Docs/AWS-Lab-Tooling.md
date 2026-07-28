@@ -216,6 +216,15 @@ Ready latency. A single iteration validates orchestration and measurement, not a
 performance claim. Run multiple iterations on controlled nodes before publishing
 comparisons or setting latency targets.
 
+### Initial OCI and Nydus Hermes Validation
+
+On 2026-07-28, both Hermes profiles passed the service smoke test on the same
+M8i sandbox node with final AMI `ami-0ec0906871c3a9d9b`. One fresh sample per
+mode recorded Nydus/OCI image-pull times of 0.585/4.696 seconds and Sandbox
+Ready times of 16.601/10.415 seconds. Nydus ran first. The run validates the
+optional path and shows that mount startup currently outweighs the pull-time
+reduction; it is not a controlled benchmark or a performance claim.
+
 ## Required Local Dependencies
 
 - Python 3.11 or later.
@@ -240,8 +249,7 @@ The current implementation intentionally defers:
 
 - Production-oriented reusable OpenTofu modules and private-network topology.
 - A fully automated release pipeline for AMIs and service images.
-- Nydus image conversion, lazy loading, Dragonfly distribution, and performance
-  benchmarks.
+- Repeated controlled Nydus lazy-loading benchmarks and Dragonfly distribution.
 - Agent Sandbox API-level snapshots.
 - Concurrent test scheduling and distributed test reporting.
 - CloudWatch log retrieval and cost reporting.

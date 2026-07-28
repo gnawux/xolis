@@ -68,6 +68,12 @@ The opt-in add-on adds `RuntimeClass/xolis-kata-nydus`,
 not modify `RuntimeClass/xolis-kata` or `SandboxTemplate/python-basic-v1`, so an
 operator can return to ordinary OCI without rebuilding the service stack.
 
+On containerd 2.2, the sandbox kubelet must enable
+`RuntimeClassInImageCriApi`; otherwise Nydus media types are sent to the default
+overlayfs snapshotter. The validated AMI `ami-0ec0906871c3a9d9b` contains the
+required CRI image-service mapping, local-pull compatibility settings, Nydus
+ECR credential provider configuration, and RAFS v6 daemon configuration.
+
 ## Optional Hermes Agent Profile
 
 The Hermes evaluation uses a separate Python 3.12 image and a zero-replica
@@ -76,3 +82,13 @@ profile. Build the image, render `xolis/hermes-profile.yaml.in` with
 renderer requires an immutable private ECR digest. See
 `Docs/demos/Hermes-Agent-Demo.md` for credential, egress, interactive session,
 and cleanup requirements. The profile is not part of the default kustomization.
+
+The 2026-07-28 AWS lab validation used API digest
+`sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`,
+OCI Hermes digest
+`sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568`,
+and Nydus Hermes digest
+`sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`.
+Both image modes passed the service smoke test. The Nydus profile additionally
+passed `hermes --help`, ordered SSE output, and WebSocket/PTTY input/output
+without model configuration.

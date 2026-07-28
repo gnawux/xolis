@@ -5,6 +5,18 @@ change the ordinary `python-basic-v1` profile. The image pins upstream Hermes
 Agent commit `846b14ab01a84483d2c3dd429579173040474585` (version 0.19.0 at the
 time of evaluation).
 
+Validated immutable references from the 2026-07-28 AWS lab run are:
+
+- OCI: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568`
+- Nydus: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`
+- API: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-api@sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`
+
+The Nydus profile was validated on AMI `ami-0ec0906871c3a9d9b` without model
+configuration. `hermes --help`, buffered commands, ordered SSE stdout/stderr,
+WebSocket/PTTY input and output, file operations, egress denial, and foreground
+cleanup passed. This confirms the sandbox and interaction path only; it does
+not confirm an inference provider or a credentialed agent task.
+
 ## Prepare the Profile
 
 Build and publish the images with `tools/xolis_image_builder.py`. Take the
@@ -58,3 +70,8 @@ After the run, download and inspect both artifacts through the file API. Close
 the WebSocket and delete the sandbox. Confirm that no command remains running
 and that the sandbox claim is deleted. The demo is a correctness demonstration,
 not a performance result.
+
+In the bounded 2026-07-28 comparison, the Nydus image pull took 0.585 seconds
+and the OCI pull took 4.696 seconds, while end-to-end Ready took 16.601 seconds
+for Nydus and 10.415 seconds for OCI. There was one sample per mode and Nydus
+ran first. Treat these numbers as diagnostic evidence, not a performance claim.

@@ -12,6 +12,16 @@ The statistically useful cold/warm baseline remains necessary, but it should be
 run after the lab has enough nodes and capacity to support representative
 concurrency, density, and failure testing.
 
+## Implementation Status
+
+All three delivery steps were implemented and received bounded AWS lab
+validation on 2026-07-28. Ordinary OCI remains the default. The optional Nydus
+path passed the complete service smoke test with AMI `ami-0ec0906871c3a9d9b`,
+and the Hermes profile passed CLI, SSE, WebSocket/PTTY, file, network-policy,
+and cleanup checks without model credentials. Repeated performance,
+concurrency, soak, and credentialed inference tests remain intentionally out of
+scope for this milestone.
+
 ## Delivery Sequence
 
 ### 1. Optional Nydus Runtime Path
