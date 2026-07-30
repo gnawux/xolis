@@ -1,11 +1,11 @@
 # Project Status and Roadmap
 
 This document summarizes the Xolis implementation status, measured behavior,
-current availability boundary, and prioritized roadmap as of 2026-07-28.
+current availability boundary, and prioritized roadmap as of 2026-07-30.
 
-The `v0.1.0` tag identifies the first validated MVP. Current `main` adds the
-automated service lifecycle and cold-versus-warm benchmark workflow described
-below.
+The `v0.1.0` tag identifies the first validated MVP. The `v0.2.0` tag adds the
+automated service lifecycle, cold-versus-warm benchmark workflow, optional
+Nydus path, and interactive Hermes Agent demonstration described below.
 
 ## 1. Current Development Progress
 
@@ -129,87 +129,188 @@ Important current limitations are:
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
-## 3. Next Work and Expected Improvements
+## 3. Roadmap Decisions and Sequence
 
-Expected improvements below are engineering hypotheses or initial targets. They
-must be confirmed by controlled repeated tests before they become project
-claims.
+Xolis is not optimizing for an immediate commercial launch. Large-cluster
+evaluation, production access controls, and statistically defensible performance
+claims can wait until the architecture is ready to benefit from them. Before
+moving toward scale, the main path has two priorities:
 
-### Deferred Until a Larger Cluster: Harden the Performance and Reliability Baseline
+1. separate cloud-neutral service behavior from cloud-specific infrastructure
+   and operations; and
+2. validate PVM as an alternative Kata host-virtualization path.
 
-Run at least 20 to 30 cold and warm samples under controlled conditions and add
-p50, p95, and p99 reporting. Record AMI ID, instance type, image digest, node
-cache state, Kubernetes version, Kata version, and failure reason with each run.
-Add concurrent sandbox tests, repeated lifecycle soak tests, and cost estimates.
+Expected improvements below are engineering hypotheses or qualification goals.
+They must be confirmed by implementation and controlled tests before they
+become project claims.
 
-Expected outcome:
+### Pre-Scale Priority 1: Separate Cloud-Neutral and Cloud-Specific Layers
 
-- confidence intervals and tail latency instead of a single favorable sample;
-- a defensible warm-pool target, initially evaluating whether Ready p95 can stay
-  below 2 seconds on an already-running node; and
-- measured success rate, cleanup reliability, resource density, and cost per
-  successful sandbox.
+The public API, sandbox lifecycle, runtime protocol, profile policy, ownership
+rules, and cleanup semantics should remain independent of a cloud provider. The
+current AWS lab mixes reusable orchestration with EKS, EC2 Auto Scaling, ECR,
+Amazon Linux, VPC CNI, and AWS identity assumptions. Refactor this boundary
+before adding another provider or a production-scale capacity controller.
 
-### Priority 1: Productize Access and Multi-Tenant Policy
+Cloud-neutral responsibilities:
 
-Add OIDC authentication, tenant quotas, rate limits, audit export, and a Gateway
-API or equivalent ingress. Move from one shared sandbox namespace toward a
-reviewed multi-tenant namespace and policy model. Add explicit egress profiles
-instead of accepting arbitrary destinations.
+- the Xolis HTTP contract, tenant and idempotency semantics, and runtime client;
+- `SandboxTemplate`, `SandboxWarmPool`, and `SandboxClaim` reconciliation;
+- Kubernetes labels, taints, RuntimeClass selection, network-policy intent, and
+  cleanup verification;
+- workload profiles, OCI image references, optional Nydus selection, and
+  provider-neutral lifecycle metrics; and
+- a conformance workflow that can exercise lifecycle behavior without calling
+  a cloud API directly.
 
-Expected outcome:
+Cloud-specific responsibilities:
 
-- a service boundary suitable for controlled multi-user evaluation;
-- predictable tenant resource consumption and clearer auditability; and
-- no expected sandbox startup improvement, because this work targets security
-  and operability rather than runtime latency.
+- cluster and network provisioning;
+- node-pool creation, scale-to-zero, capacity discovery, and instance selection;
+- host image construction, registry credentials, and workload identity;
+- CNI implementation, persistent-storage classes, load balancers, and DNS; and
+- provider-native logging, metrics, cost, and failure diagnostics.
 
-### Priority 2: Capacity Automation and Production AWS Topology
+Planned development:
 
-Introduce an explicit capacity-management policy after cold/warm behavior and
-cost are measured. Evaluate scheduled minimum capacity, queue-depth-driven ASG
-changes, Karpenter, or another controller without coupling the public API to AWS.
-Add private subnets, VPC endpoints, reusable OpenTofu modules, multiple system
-nodes, controlled upgrades, CloudWatch collection, and release automation.
+1. Define a small capacity-provider contract for discovering, starting, stopping,
+   and observing sandbox node pools. Keep provider calls outside `xolis-api`.
+2. Split the reusable lifecycle workflow from `tools/xolis_aws_lab.py`; retain AWS
+   as one adapter rather than the orchestration model itself.
+3. Move provider inputs out of the common configuration schema and define a
+   provider-neutral node-capability contract based on Kubernetes labels, taints,
+   RuntimeClasses, and conditions.
+4. Keep `infra/aws`, AWS image construction, ECR integration, and VPC CNI setup
+   explicitly provider-specific. Define equivalent directories and interfaces
+   before implementing a second cloud.
+5. Add unit tests with a fake capacity provider and a Kubernetes conformance path
+   that verifies the same create, execute, interactive, TTL, and cleanup behavior
+   independently of AWS provisioning.
+6. Validate the boundary with one non-AWS or private-cluster deployment after the
+   interfaces stabilize; do not require feature parity with AWS in the first test.
 
-Expected outcome:
+Exit criteria:
 
-- removal of the approximately 98-second node-start penalty when spare capacity
-  is already available;
-- higher availability and safer shared operation; and
-- a direct cost-versus-latency tradeoff: standby node or warm-sandbox capacity
-  consumes resources even when no request is active.
+- `xolis-api` and the sandbox profiles contain no AWS API dependency;
+- the lifecycle acceptance suite runs through a provider-neutral entry point;
+- AWS provisioning and capacity changes are isolated behind an adapter; and
+- adding another provider does not require changing the public sandbox API.
 
-### Priority 2: Persistent Workspaces and Checkpoint Research
+### Pre-Scale Priority 1: PVM Functional Validation
 
-Add an EBS-backed profile with `WaitForFirstConsumer`, then evaluate
-filesystem-only suspend/resume. Treat Kata VM memory snapshots or runtime-native
-checkpoint and restore as a separate research milestone.
+PVM is now part of the main pre-scale investigation rather than an unspecified
+later item. The immediate goal is functional qualification on an x86 host that
+does not expose VT-x or AMD-V, not a performance or density claim. Native KVM
+remains the stable baseline.
 
-Expected outcome:
+Planned development:
 
-- durable agent workspaces across sandbox replacement;
-- faster task continuation when filesystem state is sufficient; and
-- no committed VM-resume target until compatibility, security, and snapshot
-  size have been measured.
+1. Pin the PVM kernel source, patch set, toolchain, and supported host baseline.
+   Document upstream status, licensing, security-update ownership, and known
+   limitations before building deployment artifacts.
+2. Add a reproducible, separate PVM host-image pipeline. It must produce and
+   verify the required kernel, modules, configuration, and boot parameters
+   without changing the native-KVM image path.
+3. Validate the exposed KVM API with focused self-tests, then boot the existing
+   Kata runtime-rs and Dragonball stack. Record whether Kata, Dragonball, or
+   runtime configuration changes are actually required instead of assuming API
+   compatibility.
+4. Introduce an explicit PVM node capability label, taint, RuntimeClass, and
+   sandbox profile. Never place native-KVM and PVM nodes in an indistinguishable
+   capacity pool.
+5. Run the existing lifecycle acceptance suite on PVM, including command and
+   PTY execution, file metadata and inline virtio-fs behavior, network policy,
+   TTL, foreground deletion, node loss, and repeated cleanup.
+6. Validate both the stable OCI image path and, after the baseline passes, the
+   optional Nydus path. Dragonfly is not part of the initial PVM gate.
+7. Add diagnostics that distinguish missing PVM support, kernel/module failure,
+   `/dev/kvm` failure, VMM startup failure, and guest boot failure.
+8. Document kernel upgrade, rollback, vulnerability response, and node
+   replacement before considering PVM an operator-selectable capability.
 
-### Later Evaluation
+Exit criteria:
 
-Later work includes PVM, Confidential Containers, GPUs, multi-region operation,
-Dragonfly peer-to-peer distribution, a billing ledger, and a separate scheduler
-or event bus. These should not delay the controlled Nydus comparison,
-multi-tenant access controls, or reliability baseline.
+- a Kata sandbox boots without provider-supplied nested virtualization;
+- the provider-neutral lifecycle suite passes without weakening the isolation
+  or cleanup contract;
+- native KVM remains an independent fallback; and
+- remaining performance, density, and security questions are recorded for the
+  later large-cluster qualification phase.
+
+### Before Scale, Not Urgent: Dragonfly Distribution Qualification
+
+Dragonfly peer-to-peer distribution is expected to be primarily a deployment
+and operations task. It has little value in the current one-node lab and should
+not block the cloud-boundary or PVM work.
+
+Planned work:
+
+- choose and pin the Dragonfly deployment topology and Helm release;
+- define scheduler, manager, seed-peer, and peer placement, persistent cache
+  storage, certificates, authentication, ports, and NetworkPolicies;
+- integrate Dragonfly with the optional Nydus profile while retaining direct
+  registry pull as a tested fallback;
+- add provider-neutral configuration for selecting the distribution path;
+- expose peer, cache-hit, origin-fallback, transfer, and failure metrics; and
+- validate correctness and cache behavior on at least three sandbox nodes before
+  running distribution benchmarks.
+
+Expected Xolis code changes are limited to configuration, profile selection,
+health reporting, test automation, and fallback behavior unless integration
+testing identifies a missing upstream interface.
+
+### Scale-Entry Decision: Kubernetes State and an External Database
+
+The current `xolis-api` deliberately has no external database. Durable control
+state is represented by Kubernetes `SandboxClaim` objects. Tenant and
+idempotency hashes are stored in labels, request metadata is stored in an
+annotation, and API instances reconstruct state by listing labelled claims.
+This keeps Kubernetes as the lifecycle source of truth and avoids database and
+cluster-state divergence at the current scale.
+
+Revisit this design when scale introduces one or more of these conditions:
+
+- claim list/watch traffic creates measurable Kubernetes API Server pressure;
+- idempotency records must outlive deleted claims;
+- audit, usage, billing, or failure history requires durable retention;
+- operators need indexed queries that labels and annotations cannot support; or
+- multiple clusters or Regions require a service-level view of ownership and
+  placement.
+
+If a database is introduced, Kubernetes should remain authoritative for desired
+and observed sandbox lifecycle state. The database should initially own
+service-level idempotency, audit history, usage records, and cross-cluster query
+indexes. Define reconciliation, retention, backup, and disaster-recovery rules
+before storing the same mutable lifecycle field in both systems.
+
+### Deferred Until Scale: Performance, Reliability, and Productization
+
+Large-cluster evaluation is intentionally deferred. When the project enters
+this phase:
+
+- run controlled cold and warm latency distributions with p50, p95, and p99;
+- add concurrent lifecycle, soak, node-failure, cleanup, and density tests;
+- measure cost per successful sandbox and compare native KVM with qualified PVM;
+- evaluate automatic capacity management without coupling `xolis-api` to a
+  provider;
+- add OIDC, tenant quotas, rate limits, audit export, and a public service
+  ingress only when multi-user operation requires them; and
+- qualify Dragonfly distribution under representative multi-node image demand.
+
+Persistent workspaces, filesystem-only suspend/resume, VM checkpoint research,
+Confidential Containers, GPUs, multi-region placement, billing, and a separate
+scheduler or event bus remain later capabilities. They do not block the two
+pre-scale priorities.
 
 ## Recommended Immediate Milestone
 
-The next milestone should combine two bounded deliverables:
+The next milestone has two bounded deliverables:
 
-1. Repeat the optional OCI/Nydus comparison on controlled fresh and cached
-   nodes, and profile the Nydus mount path before drawing performance conclusions.
-2. Add reviewed provider-specific egress for a credentialed Hermes Agent demo;
-   keep credentials out of images and repository content.
+1. define and implement the cloud-neutral capacity and lifecycle boundary while
+   retaining AWS as the first provider adapter; and
+2. build the reproducible PVM host path and pass the existing functional
+   lifecycle suite without relying on provider-supplied nested virtualization.
 
-This sequence creates two visible product capabilities while preserving the
-validated Kata and ordinary-OCI MVP. Statistically useful baseline, concurrency,
-soak, density, and cost testing will follow when the cluster is large enough to
-produce representative results.
+No large-cluster performance claim is required for this milestone. Its purpose
+is to prove architectural portability and the alternative virtualization path
+before scaling the system.
