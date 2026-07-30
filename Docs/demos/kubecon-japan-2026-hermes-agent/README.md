@@ -1,21 +1,41 @@
-# Hermes Agent Interactive Demo
+# KubeCon Japan 2026 Hermes Agent Interactive Demo
+
+This directory preserves the Xolis Hermes Agent demonstration prepared for
+KubeCon Japan 2026. It contains no model credential or other secret. The helper
+script reads a temporary ZenMux key without echoing it and writes the key
+directly to a Kubernetes Secret at runtime.
+
+![Hermes Agent demo architecture](architecture.png)
+
+## Contents
+
+- `RUNBOOK.md`: complete presenter workflow, narration, fallback, and cleanup.
+- `configure-zenmux-secret.zsh`: hidden-input Secret configuration helper.
+- `hermes-temporary-egress.yaml`: temporary public-HTTPS NetworkPolicy used by
+  the live demonstration.
+- `demo-prompt.txt`: deterministic task pasted into Hermes.
+- `architecture.png`: diagram used in the presentation.
+- `architecture-image-brief.md`: source brief and prompts used to generate the
+  diagram.
 
 This opt-in demo runs Hermes Agent in a dedicated sandbox profile. It does not
 change the ordinary `python-basic-v1` profile. The image pins upstream Hermes
 Agent commit `846b14ab01a84483d2c3dd429579173040474585` (version 0.19.0 at the
 time of evaluation).
 
-Validated immutable references from the 2026-07-28 AWS lab run are:
+Historical immutable references from the 2026-07-28 AWS lab run were:
 
 - OCI: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568`
 - Nydus: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`
 - API: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-api@sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`
 
-The Nydus profile was validated on AMI `ami-0ec0906871c3a9d9b` without model
-configuration. `hermes --help`, buffered commands, ordered SSE stdout/stderr,
-WebSocket/PTTY input and output, file operations, egress denial, and foreground
-cleanup passed. This confirms the sandbox and interaction path only; it does
-not confirm an inference provider or a credentialed agent task.
+The demo AWS environment, ECR repositories, and AMI were deleted after the
+event, so these references are retained as evidence and are not expected to
+resolve. The Nydus profile was validated on AMI `ami-0ec0906871c3a9d9b`
+without model configuration. `hermes --help`, buffered commands, ordered SSE
+stdout/stderr, WebSocket/PTTY input and output, file operations, egress denial,
+and foreground cleanup passed. This confirms the sandbox and interaction path
+only; it does not confirm an inference provider or a credentialed agent task.
 
 ## Prepare the Profile
 
@@ -38,9 +58,11 @@ its values in this repository. The profile passes the Secret at runtime; the
 image contains no credentials.
 
 The checked-in profile permits DNS but intentionally denies external model
-traffic. Before the demo, add a reviewed CNI policy that allows TCP 443 only to
-the selected provider endpoints. Do not use an unrestricted Internet egress
-rule. Then apply the rendered profile and configure `xolis-api` to use
+traffic. Before a production use, add a reviewed CNI policy that allows TCP 443
+only to the selected provider endpoints. The included
+`hermes-temporary-egress.yaml` permits public HTTPS for the bounded live demo,
+excludes private and special-purpose ranges, and must be deleted immediately
+afterward. Then apply the rendered profile and configure `xolis-api` to use
 `XOLIS_PROFILE=hermes-agent-v1`, `XOLIS_WARM_POOL=hermes-agent-v1-pool`, and a
 command timeout of at least 900 seconds. For Nydus, use
 `hermes-agent-nydus-v1`, `hermes-agent-nydus-v1-pool`, and install the opt-in
@@ -54,12 +76,12 @@ and interactive terminal attachment in one command:
     python3 tools/hermes_demo.py \
         --egress-manifest /path/to/reviewed-provider-egress.yaml
 
-For the Nydus image path, add `--image-mode nydus`. The egress manifest is not
-stored in this repository because it must match the chosen provider and the
-cluster's CNI behavior. Omitting it is useful for validating that Hermes starts,
-but model calls remain blocked by the profile's DNS-only policy. The tool does
-not create, inspect, or print model credentials; it requires the existing
-`hermes-agent-credentials` Secret.
+For the Nydus image path, add `--image-mode nydus`. The included egress manifest
+records the conference configuration; review it against the provider and the
+cluster's CNI behavior before reuse. Omitting it is useful for validating that
+Hermes starts, but model calls remain blocked by the profile's DNS-only policy.
+The tool does not create, inspect, or print model credentials; it requires the
+existing `hermes-agent-credentials` Secret.
 
 The default cleanup deletes the sandbox, scales its warm pool to zero, and
 restores the previous `xolis-api` environment. Add `--keep-prepared` when

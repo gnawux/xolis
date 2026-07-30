@@ -80,8 +80,9 @@ The Hermes evaluation uses a separate Python 3.12 image and a zero-replica
 profile. Build the image, render `xolis/hermes-profile.yaml.in` with
 `tools/render_hermes_profile.py`, and apply only the rendered output. The
 renderer requires an immutable private ECR digest. See
-`Docs/demos/Hermes-Agent-Demo.md` for credential, egress, interactive session,
-and cleanup requirements. The profile is not part of the default kustomization.
+`Docs/demos/kubecon-japan-2026-hermes-agent/README.md` for credential, egress,
+interactive session, and cleanup requirements. The profile is not part of the
+default kustomization.
 
 The 2026-07-28 AWS lab validation used API digest
 `sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`,

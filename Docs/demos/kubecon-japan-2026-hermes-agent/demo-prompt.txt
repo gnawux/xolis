@@ -1,0 +1,14 @@
+You are running inside an isolated Xolis sandbox backed by Kata Containers.
+
+Complete this short demonstration without asking follow-up questions:
+
+1. Work only under /workspace/demo.
+2. Create /workspace/demo/status.md containing a concise English summary of this session. Mention that the workload is isolated, time-bounded, and cleaned up after the session.
+3. Create /workspace/demo/result.json with exactly these fields:
+   - "agent": "hermes"
+   - "task": "interactive-sandbox-demo"
+   - "completed": true
+4. Validate result.json with Python's JSON parser.
+5. Display the working directory, a long listing of /workspace/demo, and the complete contents of both files.
+
+Do not inspect or print environment variables, tokens, credentials, or files outside /workspace/demo. Do not install packages. Briefly describe each action while you work.
