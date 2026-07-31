@@ -8,6 +8,16 @@ required_variables=(
   KATA_SOURCE_COMMIT
 )
 
+kata_patch_commits=(
+  "7381d8eee0089a454bf6a67dc4a068faabfd1a78"
+  "dbcd740dcb5be9f0d60019a2f18e74cdde4821af"
+)
+kata_patch_files=(
+  "/tmp/0001-runtime-rs-allow-listxattr.patch"
+  "/tmp/0002-runtime-rs-allow-name-to-handle-at.patch"
+)
+kata_build_provenance="/etc/xolis/kata-build"
+
 for variable in "${required_variables[@]}"; do
   if [[ -z "${!variable:-}" ]]; then
     echo "${variable} must be set" >&2
@@ -126,6 +136,12 @@ if [[ "${REUSE_EXISTING_KATA_RUNTIME:-false}" == "true" ]]; then
   test -x /opt/kata/runtime-rs/bin/containerd-shim-kata-v2
   test -f "${kata_dragonball_config}"
   grep -q '^\[hypervisor\.dragonball\]' "${kata_dragonball_config}"
+  test -f "${kata_build_provenance}"
+  grep -Fxq "version=${KATA_VERSION}" "${kata_build_provenance}"
+  grep -Fxq "source_commit=${KATA_SOURCE_COMMIT}" "${kata_build_provenance}"
+  for patch_commit in "${kata_patch_commits[@]}"; do
+    grep -Fxq "patch_commit=${patch_commit}" "${kata_build_provenance}"
+  done
   echo "Reusing the validated Kata runtime from the immutable source AMI"
 else
   kata_archive="${work_directory}/kata-static.tar.zst"
@@ -142,6 +158,19 @@ else
     echo "Kata source checkout did not resolve to ${KATA_SOURCE_COMMIT}" >&2
     exit 1
   fi
+
+  for patch_file in "${kata_patch_files[@]}"; do
+    if [[ ! -f "${patch_file}" ]]; then
+      echo "Required Kata patch does not exist: ${patch_file}" >&2
+      exit 1
+    fi
+    git -C "${kata_source_directory}" apply --check "${patch_file}"
+    git -C "${kata_source_directory}" apply "${patch_file}"
+  done
+
+  dragonball_seccomp_source="${kata_source_directory}/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs"
+  grep -Fq '(libc::SYS_listxattr, vec![])' "${dragonball_seccomp_source}"
+  grep -Fq '(libc::SYS_name_to_handle_at, vec![])' "${dragonball_seccomp_source}"
 
 # AWS M8i nested KVM exposes a modern XSAVE feature set (including AVX-512 and
 # AMX) through KVM_GET_SUPPORTED_CPUID. Dragonball 4.0.0 passes those leaves to
@@ -224,12 +253,23 @@ PY
   fi
 fi
 
-install -d -m 0755 /usr/local/bin /usr/local/sbin /etc/containerd/conf.d /etc/kata-containers /etc/nydus
+install -d -m 0755 /usr/local/bin /usr/local/sbin /etc/containerd/conf.d /etc/kata-containers /etc/nydus /etc/xolis
 install -m 0755 /opt/kata/runtime-rs/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2
 install -m 0755 /opt/kata/bin/kata-runtime /usr/local/bin/kata-runtime
 install -m 0644 "${kata_dragonball_config}" /etc/kata-containers/configuration-xolis-dragonball.toml
 install -m 0644 /tmp/containerd-xolis-kata.toml /etc/containerd/conf.d/xolis-kata.toml
 install -m 0755 /tmp/enable-containerd-import /usr/local/sbin/xolis-enable-containerd-import
+
+if [[ "${REUSE_EXISTING_KATA_RUNTIME:-false}" != "true" ]]; then
+  {
+    printf 'version=%s\n' "${KATA_VERSION}"
+    printf 'source_commit=%s\n' "${KATA_SOURCE_COMMIT}"
+    for patch_commit in "${kata_patch_commits[@]}"; do
+      printf 'patch_commit=%s\n' "${patch_commit}"
+    done
+  } >"${kata_build_provenance}"
+  chmod 0644 "${kata_build_provenance}"
+fi
 
 install -d -m 0755 /etc/systemd/system/containerd.service.d
 cat >/etc/systemd/system/containerd.service.d/10-xolis-runtime.conf <<'EOF'
@@ -293,6 +333,7 @@ test -x /usr/local/bin/containerd-shim-kata-v2
 test -f /etc/kata-containers/configuration-xolis-dragonball.toml
 grep -q '^\[hypervisor\.dragonball\]' /etc/kata-containers/configuration-xolis-dragonball.toml
 test -x /usr/local/sbin/xolis-enable-containerd-import
+test -f "${kata_build_provenance}"
 if (( nydus_variable_count == ${#nydus_variables[@]} )); then
   containerd-nydus-grpc --version
   nydusd --version

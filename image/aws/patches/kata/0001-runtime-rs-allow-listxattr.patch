@@ -1,0 +1,36 @@
+From 7381d8eee0089a454bf6a67dc4a068faabfd1a78 Mon Sep 17 00:00:00 2001
+From: Alex Lyn <alex.lyn@antgroup.com>
+Date: Wed, 29 Jul 2026 16:38:14 +0800
+Subject: [PATCH] runtime-rs: Allow listxattr in dragonball seccomp
+
+The inline virtio-fs backend calls listxattr when handling
+FUSE LISTXATTR requests. Since listxattr is missing from the
+Dragonball seccomp allowlist, the virtiofs thread receives
+SIGSYS and the shim exits.
+
+Allow listxattr so xattr-aware operations on shared paths can
+complete with Dragonball seccomp enabled.
+
+Keep the allowlist as small as possible. Other commonly used
+xattr syscalls can be considered when concrete use cases require
+them.
+
+Fixes: #13136
+
+Signed-off-by: Alex Lyn <alex.lyn@antgroup.com>
+---
+ src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs b/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
+index dad10880f..79bb98183 100644
+--- a/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
++++ b/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
+@@ -111,6 +111,7 @@ pub fn get_process_seccomp_rules() -> Vec<(i64, Vec<seccompiler::SeccompRule>)>
+         (libc::SYS_umount2, vec![]),
+         (libc::SYS_gettid, vec![]),
+         (libc::SYS_getxattr, vec![]),
++        (libc::SYS_listxattr, vec![]),
+         (libc::SYS_tkill, vec![]),
+         (libc::SYS_futex, vec![]),
+         (libc::SYS_sched_setaffinity, vec![]),

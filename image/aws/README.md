@@ -21,6 +21,9 @@ The builder intentionally requires complete immutable artifact inputs instead of
 - Public build-subnet ID from the lab VPC.
 - Kata Containers static archive URL and SHA-256.
 - Kata Containers source commit, fixed to the commit behind the chosen release tag. The builder verifies the exact checkout and generates the Dragonball runtime configuration from it.
+- The two vendored Dragonball seccomp patches from Kata Containers PR #13510.
+  The builder checks and applies both patches and records their upstream commit
+  IDs in `/etc/xolis/kata-build`.
 - Optional Nydus snapshotter and image-service archive URLs, versions, and
   SHA-256 values. Leave all six Nydus inputs empty for the Kata-only baseline.
   The snapshotter archive provides `containerd-nydus-grpc`; the separate
@@ -36,8 +39,10 @@ Create a local variable file from the example and fill it with release URLs and 
 For an iterative Nydus-only rebuild, `source_ami_id` may identify an immutable
 Xolis AMI whose `KataVersion` and `KataCommit` tags exactly match the requested
 inputs. Set `reuse_existing_kata_runtime = true` only in that case. The build
-validates the installed Kata binaries and Dragonball configuration before
-installing Nydus; the default remains a complete Kata rebuild from the EKS AMI.
+validates the installed Kata binaries, Dragonball configuration, source commit,
+and patch provenance before installing Nydus; the default remains a complete
+Kata rebuild from the EKS AMI. An older AMI without `/etc/xolis/kata-build` or
+without both required patch commit IDs cannot be reused.
 
 Record the AMI ID in `infra/aws/minimal/terraform.tfvars` as `sandbox_ami_id`, then run `tofu plan` and `tofu apply`. The ASG will remain at zero until a Lab cycle starts it.
 
@@ -47,6 +52,15 @@ The example pins Kata Containers 4.0.0 as the validated baseline, including its
 immutable release-asset digest and source commit. This makes the AMI and smoke
 results reproducible. Do not replace it with an unversioned `main` build in this
 file.
+
+The baseline additionally backports the two commits merged through upstream
+[Kata Containers PR #13510](https://github.com/kata-containers/kata-containers/pull/13510):
+`7381d8eee0089a454bf6a67dc4a068faabfd1a78` permits `listxattr`, and
+`dbcd740dcb5be9f0d60019a2f18e74cdde4821af` permits `name_to_handle_at` in
+Dragonball's seccomp policy. These calls are required by the inline virtio-fs
+path used by the Hermes workload. Keeping the patches in this repository makes
+the fixed 4.0.0 build reproducible until a later pinned Kata release contains
+the upstream changes.
 
 The runtime-rs build uses the GNU Rust target (`LIBC=gnu`). Kata's runtime-rs documentation lists the musl target as an optional fully-static build, while Amazon Linux 2023 does not provide the `musl-gcc` package needed by Kata's default musl build. This does not change the built-in Dragonball VMM.
 

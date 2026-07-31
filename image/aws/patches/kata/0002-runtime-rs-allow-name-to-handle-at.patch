@@ -1,0 +1,30 @@
+From dbcd740dcb5be9f0d60019a2f18e74cdde4821af Mon Sep 17 00:00:00 2001
+From: Alex Lyn <alex.lyn@antgroup.com>
+Date: Wed, 29 Jul 2026 19:29:51 +0800
+Subject: [PATCH] runtime-rs: Allow name_to_handle_at in dragonball seccomp
+
+The inline virtio-fs backend calls name_to_handle_at while importing
+the passthrough root directory. Since the syscall is missing from the
+Dragonball seccomp allowlist, the shim receives SIGSYS and exits
+during sandbox startup.
+
+Allow name_to_handle_at so the passthrough filesystem can be initialized
+with Dragonball seccomp enabled while keeping the allowlist minimal.
+
+Signed-off-by: Alex Lyn <alex.lyn@antgroup.com>
+---
+ src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs b/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
+index 79bb98183..559b45e89 100644
+--- a/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
++++ b/src/runtime-rs/crates/hypervisor/src/dragonball/seccomp.rs
+@@ -112,6 +112,7 @@ pub fn get_process_seccomp_rules() -> Vec<(i64, Vec<seccompiler::SeccompRule>)>
+         (libc::SYS_gettid, vec![]),
+         (libc::SYS_getxattr, vec![]),
+         (libc::SYS_listxattr, vec![]),
++        (libc::SYS_name_to_handle_at, vec![]),
+         (libc::SYS_tkill, vec![]),
+         (libc::SYS_futex, vec![]),
+         (libc::SYS_sched_setaffinity, vec![]),

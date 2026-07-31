@@ -1,11 +1,14 @@
 # Project Status and Roadmap
 
 This document summarizes the Xolis implementation status, measured behavior,
-current availability boundary, and prioritized roadmap as of 2026-07-30.
+current availability boundary, and prioritized roadmap as of 2026-07-31.
 
 The `v0.1.0` tag identifies the first validated MVP. The `v0.2.0` tag adds the
 automated service lifecycle, cold-versus-warm benchmark workflow, optional
-Nydus path, and interactive Hermes Agent demonstration described below.
+Nydus path, and interactive Hermes Agent demonstration described below. The
+`v0.2.1` patch release vendors the two Dragonball seccomp fixes merged through
+Kata Containers PR #13510 so the fixed Kata 4.0.0 AMI build supports the inline
+virtio-fs metadata operations exercised by Hermes.
 
 ## 1. Current Development Progress
 
@@ -18,7 +21,8 @@ The AWS lab currently provides:
 - One dedicated self-managed Auto Scaling group for sandbox nodes, with explicit
   `0 -> 1 -> 0` test capacity instead of workload-driven autoscaling.
 - An EKS-compatible Amazon Linux 2023 AMI with Kata Containers 4.0.0
-  runtime-rs, Dragonball, and the `xolis-kata` containerd handler.
+  runtime-rs, Dragonball, the upstream PR #13510 seccomp backport, and the
+  `xolis-kata` containerd handler.
 - A documented Dragonball CPUID workaround for the AWS M8i nested-KVM
   environment.
 - Amazon VPC CNI NetworkPolicy enforcement for sandbox traffic isolation.

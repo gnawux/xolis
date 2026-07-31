@@ -116,6 +116,7 @@ source "amazon-ebs" "sandbox" {
     ManagedBy               = "packer"
     KataVersion             = var.kata_version
     KataCommit              = var.kata_source_commit
+    KataPatchSet            = "kata-pr-13510"
     NydusSnapshotterVersion = var.nydus_snapshotter_version != "" ? var.nydus_snapshotter_version : "disabled"
     NydusDaemonVersion      = var.nydus_daemon_version != "" ? var.nydus_daemon_version : "disabled"
   }
@@ -166,6 +167,16 @@ build {
   provisioner "file" {
     source      = "scripts/enable-containerd-import"
     destination = "/tmp/enable-containerd-import"
+  }
+
+  provisioner "file" {
+    source      = "patches/kata/0001-runtime-rs-allow-listxattr.patch"
+    destination = "/tmp/0001-runtime-rs-allow-listxattr.patch"
+  }
+
+  provisioner "file" {
+    source      = "patches/kata/0002-runtime-rs-allow-name-to-handle-at.patch"
+    destination = "/tmp/0002-runtime-rs-allow-name-to-handle-at.patch"
   }
 
   provisioner "shell" {

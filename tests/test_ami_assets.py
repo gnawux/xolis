@@ -24,6 +24,37 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("REUSE_EXISTING_KATA_RUNTIME", installer)
         self.assertIn("Reusing the validated Kata runtime", installer)
 
+    def test_kata_seccomp_backport_is_applied_and_recorded(self) -> None:
+        patch_directory = ROOT / "image/aws/patches/kata"
+        patches = {
+            "0001-runtime-rs-allow-listxattr.patch": (
+                "7381d8eee0089a454bf6a67dc4a068faabfd1a78",
+                "SYS_listxattr",
+            ),
+            "0002-runtime-rs-allow-name-to-handle-at.patch": (
+                "dbcd740dcb5be9f0d60019a2f18e74cdde4821af",
+                "SYS_name_to_handle_at",
+            ),
+        }
+        for filename, (commit, syscall) in patches.items():
+            contents = (patch_directory / filename).read_text(encoding="utf-8")
+            self.assertIn(commit, contents)
+            self.assertIn(syscall, contents)
+
+        installer = (ROOT / "image/aws/scripts/install-runtime.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("git -C \"${kata_source_directory}\" apply --check", installer)
+        self.assertIn("/etc/xolis/kata-build", installer)
+        for commit, syscall in patches.values():
+            self.assertIn(commit, installer)
+            self.assertIn(syscall, installer)
+
+        packer = (ROOT / "image/aws/packer.pkr.hcl").read_text(encoding="utf-8")
+        self.assertIn('KataPatchSet            = "kata-pr-13510"', packer)
+        for filename in patches:
+            self.assertIn(f"patches/kata/{filename}", packer)
+
     def test_nydus_handler_is_opt_in(self) -> None:
         configuration = (ROOT / "image/aws/files/containerd-xolis-kata.toml").read_text(
             encoding="utf-8"
