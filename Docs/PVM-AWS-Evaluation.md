@@ -14,6 +14,11 @@ PVM is a software-implemented paravirtualized flavor of KVM for x86. Its intende
 
 PVM does not remove the need for a guest kernel, guest root filesystem, virtual devices, or VM memory. It solves a host virtualization compatibility problem. It does not, by itself, make individual Kata sandboxes smaller or less expensive.
 
+The implementation work targets Kata Containers runtime-rs with the upstream
+Dragonball VMM. The detailed artifact, AMI, integration, and qualification
+sequence is maintained in
+[PVM Development and Test Plan](PVM-Development-and-Test-Plan.md).
+
 ## Benefits of PVM
 
 ### Broader Node Selection

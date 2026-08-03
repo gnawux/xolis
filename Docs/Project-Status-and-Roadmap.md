@@ -205,7 +205,9 @@ Exit criteria:
 PVM is now part of the main pre-scale investigation rather than an unspecified
 later item. The immediate goal is functional qualification on an x86 host that
 does not expose VT-x or AMD-V, not a performance or density claim. Native KVM
-remains the stable baseline.
+remains the stable baseline. The executable build sequence, test matrix, and
+release gates are defined in
+[PVM Development and Test Plan](PVM-Development-and-Test-Plan.md).
 
 Planned development:
 
@@ -213,12 +215,12 @@ Planned development:
    Document upstream status, licensing, security-update ownership, and known
    limitations before building deployment artifacts.
 2. Add a reproducible, separate PVM host-image pipeline. It must produce and
-   verify the required kernel, modules, configuration, and boot parameters
-   without changing the native-KVM image path.
-3. Validate the exposed KVM API with focused self-tests, then boot the existing
-   Kata runtime-rs and Dragonball stack. Record whether Kata, Dragonball, or
-   runtime configuration changes are actually required instead of assuming API
-   compatibility.
+   verify the required kernel, modules, configuration, `pti=off` boot parameter,
+   and security state without changing the native-KVM image path.
+3. Validate the exposed KVM API with focused self-tests, then reproduce the
+   upstream-confirmed Kata runtime-rs and Dragonball combination. Keep upstream
+   behavior by default; add a local change only for a reproducible integration
+   defect and report generally applicable fixes upstream.
 4. Introduce an explicit PVM node capability label, taint, RuntimeClass, and
    sandbox profile. Never place native-KVM and PVM nodes in an indistinguishable
    capacity pool.
@@ -235,8 +237,9 @@ Planned development:
 Exit criteria:
 
 - a Kata sandbox boots without provider-supplied nested virtualization;
-- the provider-neutral lifecycle suite passes without weakening the isolation
-  or cleanup contract;
+- the provider-neutral lifecycle suite passes with the required host `pti=off`
+  constraint and residual risk explicitly documented, without weakening the
+  public authorization or cleanup contract;
 - native KVM remains an independent fallback; and
 - remaining performance, density, and security questions are recorded for the
   later large-cluster qualification phase.

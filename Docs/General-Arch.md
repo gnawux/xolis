@@ -21,6 +21,9 @@ The architecture combines:
   as an optional research path for environments that cannot expose hardware
   virtualization extensions.
 
+The implementation and qualification sequence for the PVM path is documented
+in [PVM Development and Test Plan](PVM-Development-and-Test-Plan.md).
+
 ## Deployment Architecture
 
 The system is deployed on Kubernetes, using a cloud-managed control plane where
