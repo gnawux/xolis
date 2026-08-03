@@ -38,6 +38,12 @@ class PvmAssetTests(unittest.TestCase):
         self.assertIn('host_base_config_copy="${work_directory}/eks-host-base.config"', build)
         self.assertIn('guest_base_config_copy="${work_directory}/pvm-guest-base.config"', build)
 
+    def test_dependency_install_keeps_the_ami_curl_provider(self) -> None:
+        installer = (PVM / "scripts/install-build-dependencies.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("  curl \\\n", installer)
+
     def test_host_and_guest_fragments_keep_the_paths_separate(self) -> None:
         host = (PVM / "config/host-pvm.fragment").read_text(encoding="utf-8")
         guest = (PVM / "config/guest-pvm.fragment").read_text(encoding="utf-8")

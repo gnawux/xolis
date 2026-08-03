@@ -26,6 +26,10 @@ sudo image/aws/pvm/scripts/install-build-dependencies.sh
 sudo PVM_BUILD_JOBS=4 image/aws/pvm/scripts/build-kernels.sh
 ```
 
+The source AMI provides the `curl` command through `curl-minimal`. The
+dependency installer intentionally does not replace it with the conflicting
+full `curl` package.
+
 The default host config is `/boot/config-$(uname -r)`. Override
 `PVM_HOST_BASE_CONFIG` only when validating an explicitly pinned copy of the
 same config. The default output is `/opt/xolis-artifacts/pvm/<PVM-commit>/`.

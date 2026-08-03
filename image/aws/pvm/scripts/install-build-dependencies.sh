@@ -15,7 +15,6 @@ dnf install -y \
   bc \
   binutils \
   bison \
-  curl \
   dwarves \
   elfutils-libelf-devel \
   flex \
