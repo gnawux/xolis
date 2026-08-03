@@ -7,6 +7,9 @@ CONFIG_MODULE_UNLOAD=y
 # Make the root-volume, network, and node-storage paths explicit instead of
 # relying on defaults inherited from a newer EKS kernel configuration.
 CONFIG_BLK_DEV_NVME=y
+CONFIG_PCI=y
+CONFIG_PCI_MSI=y
+CONFIG_NET_VENDOR_AMAZON=y
 CONFIG_ENA_ETHERNET=m
 CONFIG_XFS_FS=y
 CONFIG_EXT4_FS=m
