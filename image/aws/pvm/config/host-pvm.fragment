@@ -1,0 +1,23 @@
+# PVM-specific additions to the pinned EKS 1.35 AL2023 kernel configuration.
+CONFIG_KVM=m
+CONFIG_KVM_PVM=m
+CONFIG_MODULES=y
+CONFIG_MODULE_UNLOAD=y
+
+# Make the root-volume, network, and node-storage paths explicit instead of
+# relying on defaults inherited from a newer EKS kernel configuration.
+CONFIG_BLK_DEV_NVME=y
+CONFIG_ENA_ETHERNET=m
+CONFIG_XFS_FS=y
+CONFIG_EXT4_FS=m
+CONFIG_OVERLAY_FS=m
+CONFIG_NF_CONNTRACK=m
+CONFIG_VHOST_NET=m
+CONFIG_VHOST_VSOCK=m
+CONFIG_VIRTIO_VSOCKETS=m
+
+# Keep qualification diagnostics available in the experimental PVM image.
+CONFIG_DEBUG_FS=y
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
