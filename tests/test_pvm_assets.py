@@ -52,7 +52,7 @@ class PvmAssetTests(unittest.TestCase):
         self.assertNotIn("CONFIG_PVM_GUEST=y", host)
         self.assertIn("CONFIG_PVM_GUEST=y", guest)
         self.assertIn("CONFIG_X86_PIE=y", guest)
-        self.assertIn("CONFIG_PAGE_TABLE_ISOLATION=y", guest)
+        self.assertIn("CONFIG_MITIGATION_PAGE_TABLE_ISOLATION=y", guest)
         self.assertIn("CONFIG_MODULES=n", guest)
 
     def test_config_validator_accepts_complete_synthetic_configs(self) -> None:
@@ -89,7 +89,7 @@ class PvmAssetTests(unittest.TestCase):
             "CONFIG_KVM_GUEST": "y",
             "CONFIG_PARAVIRT": "y",
             "CONFIG_PARAVIRT_XXL": "y",
-            "CONFIG_PAGE_TABLE_ISOLATION": "y",
+            "CONFIG_MITIGATION_PAGE_TABLE_ISOLATION": "y",
             "CONFIG_MODULES": "n",
             "CONFIG_KASAN": "n",
             "CONFIG_VSOCKETS": "y",
