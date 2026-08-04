@@ -264,6 +264,23 @@ Each phase ends with its own validation and signed-off Git commit. Do not merge
 an unvalidated artifact pipeline, AMI, runtime handler, and infrastructure
 change into one commit.
 
+Status as of August 4, 2026:
+
+| Phase | Status | Remaining gate |
+| --- | --- | --- |
+| 0. Inputs and provenance | Complete for the first pinned baseline. | Carry the same identities into the AMI tags and release metadata. |
+| 1. Kernel artifacts | Complete for the pinned host and guest build; artifacts and manifests are archived in versioned S3 storage. | Integrate artifact retrieval and digest enforcement into the AMI pipeline. |
+| 2. Host AMI | Host boot proof complete on `c7i.4xlarge`; ENA, NVMe, XFS, SSM, `pti=off`, `kvm-pvm`, and KVM API 12 passed. | Implement the immutable Packer pipeline, rollback entry, reboot validation, and AMI publication. |
+| 3. Dragonball bring-up | CPU, memory, block, vsock, time, inline virtio-fs, xattrs, repeated start, and teardown passed. | Qualify virtio-net through a real CNI data plane and add focused failure injection. |
+| 4. Runtime-rs integration | Dedicated `xolis-kata-pvm` handler, readiness validation, CRI execution, one/two vCPUs, and cleanup passed. | Test through kubelet on EKS and run the native-KVM regression gate. |
+| 5. Isolated node pool | Not started. | Add the launch template, ASG, labels, taint, RuntimeClass, profile, and independent scale-to-zero path. |
+| 6. Xolis lifecycle | Not started on PVM. | Run the complete provider-neutral acceptance, failure, warm-pool, and Hermes workflows. |
+| 7. Operations and security | Artifact provenance and initial diagnostics are documented. | Complete CVE ownership, `pti=off` risk acceptance, upgrade, rollback, replacement, and incident procedures. |
+
+The critical path is therefore Phase 2, then Phase 5, followed by the remaining
+network portion of Phases 3 and 4 and the complete Phase 6 lifecycle gate.
+Large-cluster performance and density remain outside this milestone.
+
 ### Phase 0: Pin Inputs and Provenance
 
 Work:

@@ -18,8 +18,8 @@ The architecture combines:
 - [Nydus](https://nydus.dev/) and [Dragonfly](https://d7y.io/) as optional image
   lazy-loading and distribution optimizations.
 - [PVM (Pagetable-based Virtual Machine)](https://lpc.events/event/18/contributions/1766/)
-  as an optional research path for environments that cannot expose hardware
-  virtualization extensions.
+  as an experimental alternative host-virtualization path for environments
+  that cannot expose hardware virtualization extensions.
 
 The implementation and qualification sequence for the PVM path is documented
 in [PVM Development and Test Plan](PVM-Development-and-Test-Plan.md).
@@ -45,6 +45,31 @@ The validated AWS node architecture uses:
   ordinary workloads from selecting the sandbox runtime accidentally.
 - Amazon VPC CNI network-policy enforcement for sandbox ingress and egress.
 
-Nydus, Dragonfly, Kata template support, TSI, PVM, and Confidential Containers
-are optional follow-up capabilities rather than requirements for the current
-functional baseline.
+Nydus is a validated opt-in image path, while PVM is an experimental
+host-virtualization path. Dragonfly, Kata template support, TSI, and
+Confidential Containers remain follow-up capabilities. None is required by the
+stable native-KVM functional baseline.
+
+## Experimental PVM Node Architecture
+
+The verified PVM foundation keeps the public sandbox API and Kata guest model
+unchanged while replacing the host virtualization path. The matched stack is:
+
+- a pinned Linux 6.12.33 PVM host kernel booted with `pti=off` and `kvm-pvm`;
+- a guest kernel built from the same pinned PVM source revision;
+- Kata Containers 4.0.0 runtime-rs with upstream Dragonball and the dedicated
+  `xolis-kata-pvm` containerd handler; and
+- versioned kernel and runtime bundles with manifests and SHA-256 checksums.
+
+This stack has passed standalone host, containerd, and CRI qualification on an
+AWS `c7i.4xlarge` that exposed neither `vmx` nor `svm`. It has not yet passed
+EKS CNI, Kubernetes scheduling, Xolis lifecycle, or native-KVM regression
+qualification. The deployment architecture must therefore keep PVM in a
+separate AMI, node group, label and taint domain, RuntimeClass, sandbox profile,
+and observability dimension. There is no automatic fallback between PVM and
+native KVM.
+
+The next architectural gate is to prove that the same provider-neutral
+lifecycle contract works on both the stable native-KVM pool and the isolated
+PVM pool while AWS provisioning remains an adapter outside the public service
+API.

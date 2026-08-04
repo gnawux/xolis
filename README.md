@@ -10,7 +10,8 @@ Xolis combines the following components:
 - Kata Containers with the Rust runtime and Dragonball VMM for VM-level workload isolation.
 - containerd for OCI image management, with the Nydus snapshotter as an optional
   lazy-loading optimization.
-- Optional PVM support for selected nested-virtualization environments.
+- An experimental PVM host path for x86 environments that do not expose
+  hardware virtualization extensions.
 - Optional Confidential Containers support for confidential-computing workloads.
 
 The high-level architecture is described in [Docs/General-Arch.md](Docs/General-Arch.md).
@@ -33,6 +34,25 @@ An independently selected Nydus path and Hermes Agent profile have passed
 bounded single-node validation; ordinary OCI remains the default. See
 [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for prerequisites and test
 workflows.
+
+The post-`v0.2.1` PVM foundation now builds and boots pinned Linux 6.12.33 host
+and guest kernels on an AWS instance without `vmx` or `svm`. Kata 4.0.0
+runtime-rs and upstream Dragonball have passed standalone containerd and CRI
+tests with the dedicated `xolis-kata-pvm` handler, including one- and two-vCPU
+boot, block rootfs, vsock, memory, inline virtio-fs, xattrs, exit propagation,
+and repeated cleanup. The matched kernel and runtime artifacts are archived
+with manifests and checksums. PVM is not yet an EKS-ready release: the next
+steps are an immutable PVM AMI, an isolated node pool and RuntimeClass, CNI
+qualification, and the complete Xolis lifecycle and native-KVM regression
+suites.
+
+Current pre-scale development therefore has two parallel priorities: separate
+the provider-neutral lifecycle and capacity contract from the AWS adapter, and
+complete PVM platform integration. Large-cluster evaluation and Dragonfly
+distribution remain deliberately deferred. See
+[Docs/Project-Status-and-Roadmap.md](Docs/Project-Status-and-Roadmap.md) for the
+ordered plan and [Docs/PVM-Development-and-Test-Plan.md](Docs/PVM-Development-and-Test-Plan.md)
+for PVM qualification gates.
 
 ## Intended Languages
 

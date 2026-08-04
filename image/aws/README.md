@@ -1,5 +1,12 @@
 # Xolis Sandbox AMI
 
+This directory is the stable AWS native-KVM image path. The experimental PVM
+path is intentionally separate under [`pvm`](pvm/README.md): its pinned host
+and guest kernels plus Kata runtime-rs and upstream Dragonball have passed
+standalone host and CRI qualification, but the immutable PVM AMI and EKS node
+pool are still roadmap work. Do not add the PVM kernel or `pti=off` to this
+native-KVM image and do not apply the AWS M8i CPUID workaround to the PVM build.
+
 This Packer build creates an immutable sandbox-node AMI from an EKS-optimized Amazon Linux 2023 AMI. It installs pinned Kata Containers, adds the `xolis-kata` containerd runtime handler, and can optionally install the Nydus snapshotter service. The Kata static artifact provides guest kernel and root filesystem assets; the build separately compiles Kata 4 `runtime-rs` with its built-in Dragonball VMM from a fixed source commit. The builder uses an M8i instance because the current AWS nested-virtualization capability requires a supported generation-eight Intel family.
 
 The preferred base AMI matches the Kubernetes version configured in

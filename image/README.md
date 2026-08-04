@@ -37,3 +37,20 @@ bootstrap, and returns immutable digest references for both modes. Runtime and
 file-content validation is performed on the Nydus-enabled sandbox node; a
 source/target mount comparison on the SELinux-enabled builder reports host-added
 `security.selinux` xattrs that are not part of the independent Nydus mount.
+
+## PVM Host and Runtime Artifacts
+
+The experimental PVM path is separate from the ordinary application-image
+builder and the native-KVM sandbox AMI. `image/aws/pvm` pins and builds the
+matched Linux 6.12.33 host and guest kernels, installs the dedicated
+`xolis-kata-pvm` runtime integration, validates the host and CRI path, and
+packages the verified Kata runtime-rs and Dragonball installation.
+
+The first pinned artifact set has passed standalone one- and two-vCPU runtime
+qualification on a host without `vmx` or `svm` and is retained in private,
+versioned S3 storage with manifests and SHA-256 checksums. The next image task
+is not another source feasibility build: it is a separate immutable PVM Packer
+pipeline that consumes those artifacts, reboots and validates the resulting
+host, and publishes an AMI for an isolated EKS node pool. See
+[`image/aws/pvm/README.md`](aws/pvm/README.md) for commands and exact artifact
+identities.

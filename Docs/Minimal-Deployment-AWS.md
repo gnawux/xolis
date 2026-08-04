@@ -19,7 +19,13 @@ Use the following initial design:
 - containerd for OCI images, with the Nydus snapshotter as an optional
   lazy-loading optimization.
 
-PVM is not an initial requirement on AWS. AWS supports nested KVM virtualization on selected virtual EC2 instance families. PVM remains an optional fallback or research path for environments without usable hardware virtualization extensions.
+PVM is not an initial requirement on AWS. AWS supports nested KVM
+virtualization on selected virtual EC2 instance families, and native KVM
+remains the minimal deployment baseline. The experimental PVM path has now
+passed standalone host and Kata runtime qualification on an instance without
+hardware virtualization extensions, but it still requires a separate AMI,
+node group, RuntimeClass, CNI test, and lifecycle qualification before it can
+be selected in this deployment.
 
 ## EKS Compatibility
 
@@ -49,7 +55,14 @@ being evaluated. It must preserve the EKS node bootstrap process. For AL2023,
 node initialization is performed by nodeadm; do not invoke nodeadm init a second
 time in the AMI build or EC2 user data.
 
-Do not introduce a patched PVM kernel in the first AWS proof of concept. First verify the standard AL2023 kernel with KVM exposed by nested virtualization. Build a separate experimental AMI only if this validation fails or if PVM is explicitly being evaluated.
+Do not replace the standard native-KVM AMI with the patched PVM kernel. The
+first AWS proof of concept remains the AL2023 kernel with KVM exposed by nested
+virtualization. When PVM is explicitly selected, build it as a separate
+experimental AMI from the pinned host kernel, guest kernel, runtime bundle, and
+manifest documented in
+[PVM Development and Test Plan](PVM-Development-and-Test-Plan.md). Its launch
+template must omit nested-virtualization CPU options and its nodes must use
+distinct labels, taints, readiness checks, and `RuntimeClass/xolis-kata-pvm`.
 
 ### Nested Virtualization
 

@@ -1,7 +1,7 @@
 # Project Status and Roadmap
 
 This document summarizes the Xolis implementation status, measured behavior,
-current availability boundary, and prioritized roadmap as of 2026-07-31.
+current availability boundary, and prioritized roadmap as of 2026-08-04.
 
 The `v0.1.0` tag identifies the first validated MVP. The `v0.2.0` tag adds the
 automated service lifecycle, cold-versus-warm benchmark workflow, optional
@@ -9,6 +9,12 @@ Nydus path, and interactive Hermes Agent demonstration described below. The
 `v0.2.1` patch release vendors the two Dragonball seccomp fixes merged through
 Kata Containers PR #13510 so the fixed Kata 4.0.0 AMI build supports the inline
 virtio-fs metadata operations exercised by Hermes.
+
+Development on `main` after `v0.2.1` adds the first verified PVM host and
+runtime path. It does not yet constitute a PVM EKS node release: the custom
+kernel, runtime-rs, and Dragonball combination has passed standalone host and
+CRI qualification, while the immutable AMI pipeline, isolated EKS node pool,
+CNI data path, and complete Xolis lifecycle qualification remain in progress.
 
 ## 1. Current Development Progress
 
@@ -31,6 +37,28 @@ The AWS lab currently provides:
 The validated AMI now also contains an opt-in Nydus path. Ordinary OCI remains
 the default and fallback; Nydus requires the separate `xolis-kata-nydus`
 RuntimeClass and an image converted with Nydus metadata.
+
+### Delivered Experimental PVM Foundation
+
+The PVM investigation has moved beyond source-build feasibility:
+
+- pinned Linux 6.12.33 PVM host and guest kernels build with validated Amazon
+  Linux 2023, EKS, container, storage, network, vsock, and virtio-fs settings;
+- the PVM host boots on an AWS `c7i.4xlarge` without `vmx` or `svm`, requires
+  the documented host `pti=off` setting, loads `kvm-pvm`, and exposes KVM API
+  version 12;
+- Kata 4.0.0 runtime-rs with upstream Dragonball boots the PVM guest through
+  direct containerd and the dedicated `xolis-kata-pvm` CRI handler;
+- one-vCPU and two-vCPU boot, block rootfs, vsock, memory, time,
+  inline virtio-fs, full xattr operations, output, exit status, repeated
+  teardown, and cleanup have passed; and
+- the matched kernel and 2.26 GB runtime bundles, manifests, and checksums are
+  retained in a private versioned S3 artifact bucket under immutable PVM and
+  Kata commit prefixes.
+
+Five consecutive cached-image two-vCPU CRI smoke runs completed in 4.457 to
+4.528 seconds. This is a single-host integration measurement, not a sandbox
+Ready latency, density result, or large-cluster performance claim.
 
 ### Delivered Service Components
 
@@ -129,7 +157,11 @@ Important current limitations are:
 - no persistent workspace, suspend/resume, or VM checkpoint;
 - no inbound sandbox service or externally exposed interactive endpoint;
 - Nydus is validated only as an opt-in single-node comparison path, and
-  Dragonfly distribution is not implemented; and
+  Dragonfly distribution is not implemented;
+- PVM is validated only through the standalone host and CRI boundary: no PVM
+  AMI pipeline, EKS node pool, CNI-backed guest network, RuntimeClass
+  scheduling, Xolis lifecycle acceptance, kernel operations policy, or
+  native-KVM regression gate has completed; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -142,13 +174,14 @@ moving toward scale, the main path has two priorities:
 
 1. separate cloud-neutral service behavior from cloud-specific infrastructure
    and operations; and
-2. validate PVM as an alternative Kata host-virtualization path.
+2. turn the validated PVM host/runtime proof into a reproducible, isolated EKS
+   node path and qualify the full Xolis lifecycle on it.
 
 Expected improvements below are engineering hypotheses or qualification goals.
 They must be confirmed by implementation and controlled tests before they
 become project claims.
 
-### Pre-Scale Priority 1: Separate Cloud-Neutral and Cloud-Specific Layers
+### Pre-Scale Workstream A: Separate Cloud-Neutral and Cloud-Specific Layers
 
 The public API, sandbox lifecycle, runtime protocol, profile policy, ownership
 rules, and cleanup semantics should remain independent of a cloud provider. The
@@ -200,43 +233,44 @@ Exit criteria:
 - AWS provisioning and capacity changes are isolated behind an adapter; and
 - adding another provider does not require changing the public sandbox API.
 
-### Pre-Scale Priority 1: PVM Functional Validation
+### Pre-Scale Workstream B: Complete PVM Platform Integration
 
-PVM is now part of the main pre-scale investigation rather than an unspecified
-later item. The immediate goal is functional qualification on an x86 host that
-does not expose VT-x or AMD-V, not a performance or density claim. Native KVM
-remains the stable baseline. The executable build sequence, test matrix, and
-release gates are defined in
+The standalone PVM functional proof is complete for the tested host and runtime
+scope. The remaining priority is to make that matched artifact set
+reproducible as an operator-selectable Kubernetes capability without weakening
+or replacing the native-KVM baseline. The executable sequence and detailed
+release gates remain in
 [PVM Development and Test Plan](PVM-Development-and-Test-Plan.md).
 
-Planned development:
+Remaining development, in order:
 
-1. Pin the PVM kernel source, patch set, toolchain, and supported host baseline.
-   Document upstream status, licensing, security-update ownership, and known
-   limitations before building deployment artifacts.
-2. Add a reproducible, separate PVM host-image pipeline. It must produce and
-   verify the required kernel, modules, configuration, `pti=off` boot parameter,
-   and security state without changing the native-KVM image path.
-3. Validate the exposed KVM API with focused self-tests, then reproduce the
-   upstream-confirmed Kata runtime-rs and Dragonball combination. Keep upstream
-   behavior by default; add a local change only for a reproducible integration
-   defect and report generally applicable fixes upstream.
-4. Introduce an explicit PVM node capability label, taint, RuntimeClass, and
-   sandbox profile. Never place native-KVM and PVM nodes in an indistinguishable
-   capacity pool.
-5. Run the existing lifecycle acceptance suite on PVM, including command and
-   PTY execution, file metadata and inline virtio-fs behavior, network policy,
-   TTL, foreground deletion, node loss, and repeated cleanup.
-6. Validate both the stable OCI image path and, after the baseline passes, the
-   optional Nydus path. Dragonfly is not part of the initial PVM gate.
-7. Add diagnostics that distinguish missing PVM support, kernel/module failure,
-   `/dev/kvm` failure, VMM startup failure, and guest boot failure.
-8. Document kernel upgrade, rollback, vulnerability response, and node
-   replacement before considering PVM an operator-selectable capability.
+1. Build a separate immutable PVM AMI pipeline from the pinned EKS-optimized
+   AL2023 source. Install the published host kernel, guest kernel, runtime
+   bundle, module policy, `pti=off`, provenance, readiness checks, and rollback
+   boot entry; reboot and validate before creating the AMI.
+2. Add a separate PVM launch template and Auto Scaling group without nested
+   virtualization CPU options. Publish explicit capability labels, a dedicated
+   taint, `RuntimeClass/xolis-kata-pvm`, and a PVM sandbox profile. Never make
+   native KVM and PVM indistinguishable or silently interchangeable.
+3. Join one PVM node to EKS and qualify the VPC CNI-backed virtio-net path,
+   DNS, allowed and denied egress, network policy, containerd restart, kubelet
+   restart, node reboot, and scale-to-zero cleanup. The standalone builder had
+   no CNI binaries or configuration, so network remains an open gate rather
+   than a known Dragonball failure.
+4. Run the provider-neutral lifecycle suite on PVM: buffered and SSE commands,
+   PTY, uploads and downloads, metadata and xattrs, timeouts, tenant isolation,
+   foreground deletion, TTL, warm-pool reset, node loss, and repeated cleanup.
+5. Run the native-KVM regression suite from the same release candidate, then
+   validate ordinary OCI on PVM. Treat Nydus as a later optional PVM test and
+   keep Dragonfly outside the first PVM release gate.
+6. Complete readiness diagnostics, kernel CVE and rebase ownership, host
+   `pti=off` risk documentation, AMI upgrade and rollback, and node replacement
+   procedures before exposing PVM as an operator-selectable capability.
 
 Exit criteria:
 
-- a Kata sandbox boots without provider-supplied nested virtualization;
+- a Kata sandbox boots without provider-supplied nested virtualization through
+  the immutable PVM AMI and dedicated Kubernetes scheduling path;
 - the provider-neutral lifecycle suite passes with the required host `pti=off`
   constraint and residual risk explicitly documented, without weakening the
   public authorization or cleanup contract;
@@ -315,7 +349,8 @@ The next milestone has two bounded deliverables:
 
 1. define and implement the cloud-neutral capacity and lifecycle boundary while
    retaining AWS as the first provider adapter; and
-2. build the reproducible PVM host path and pass the existing functional
+2. convert the verified PVM kernel/runtime artifacts into an immutable PVM AMI
+   and isolated EKS node pool, then pass CNI and the existing functional
    lifecycle suite without relying on provider-supplied nested virtualization.
 
 No large-cluster performance claim is required for this milestone. Its purpose

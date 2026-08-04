@@ -8,6 +8,23 @@ Xolis uses Kata Containers to isolate untrusted agent workloads in lightweight v
 
 AWS now supports nested virtualization for KVM on selected virtual EC2 instance families. PVM is relevant when that capability is unavailable, unsuitable, or too capacity-constrained for a target deployment.
 
+## Current Evidence
+
+The initial feasibility question is resolved for the pinned Xolis combination.
+On August 4, 2026, a `c7i.4xlarge` without `vmx` or `svm` booted the pinned
+Linux 6.12.33 PVM host kernel with `pti=off`, loaded `kvm-pvm`, and exposed KVM
+API version 12. Kata 4.0.0 runtime-rs with upstream Dragonball then booted the
+matched PVM guest through direct containerd and the `xolis-kata-pvm` CRI
+handler.
+
+Validated runtime functions include one and two guest vCPUs, block rootfs,
+Kata Agent communication over vsock, memory and time, inline virtio-fs, full
+xattr operations, output and exit propagation, and repeated cleanup. Five
+cached-image two-vCPU CRI smoke runs completed in 4.457 to 4.528 seconds. These
+results prove the standalone host/runtime path only; they do not establish
+Kubernetes readiness, network performance, density, security suitability, or
+an economic advantage.
+
 ## What PVM Changes
 
 PVM is a software-implemented paravirtualized flavor of KVM for x86. Its intended use case includes running secure containers when nested virtualization is disabled and hardware virtualization assistance is unavailable.
@@ -59,7 +76,11 @@ For comparable On-Demand instances, the native nested-virtualization premium is 
 
 Use native AWS nested virtualization as the default Xolis path. Begin with supported M8i or C8i nodes, a standard Amazon Linux 2023 kernel, and Kata Containers.
 
-Keep PVM as an experimental capability with a separate AMI and node group. Consider activating it only when one or more of the following conditions are true:
+Keep PVM as an experimental capability with a separate AMI and node group. The
+next investment should productize the verified artifact set through an
+immutable AMI, isolated EKS node pool, CNI qualification, and full lifecycle
+testing. Consider activating it for users only when one or more of the
+following conditions are true:
 
 - A target Region or Availability Zone lacks viable capacity for supported nested-virtualization instances.
 - A Spot-capacity analysis shows a material and sustained advantage for a PVM-compatible pool.
@@ -76,7 +97,9 @@ The following questions are intentionally deferred to a controlled benchmark and
 - Steady-state CPU overhead.
 - Memory overhead and sandbox density per node.
 - I/O, network, and image-lazy-loading performance.
-- Kernel and Kata compatibility.
+- CNI-backed guest networking, network policy, and Kubernetes lifecycle
+  compatibility.
+- Native-KVM regression and fallback behavior.
 - Security behavior and vulnerability response process.
 - Upgrade, rollback, and node-replacement operations.
 - Instance-family, Availability Zone, and Spot-capacity coverage.
