@@ -66,7 +66,7 @@ class AwsCli:
             detail = result.stderr.strip() or result.stdout.strip()
             raise AwsCommandError(f"{' '.join(command)} failed: {detail}")
         if json_output:
-            return json.loads(result.stdout)
+            return json.loads(result.stdout) if result.stdout.strip() else {}
         return result.stdout.strip()
 
 
@@ -389,6 +389,43 @@ class ImageBuilder:
                 )
         if self.source_uri:
             self.aws.run(["s3", "rm", self.source_uri, "--only-show-errors"])
+            bucket_and_key = self.source_uri.removeprefix("s3://")
+            bucket, separator, key = bucket_and_key.partition("/")
+            if not separator or not bucket or not key:
+                raise RuntimeError(f"invalid temporary source URI: {self.source_uri}")
+            versions = self.aws.run(
+                [
+                    "s3api",
+                    "list-object-versions",
+                    "--bucket",
+                    bucket,
+                    "--prefix",
+                    key,
+                ],
+                json_output=True,
+            )
+            objects = [
+                {"Key": item["Key"], "VersionId": item["VersionId"]}
+                for collection in ("Versions", "DeleteMarkers")
+                for item in versions.get(collection, [])
+                if item["Key"] == key
+            ]
+            if objects:
+                response = self.aws.run(
+                    [
+                        "s3api",
+                        "delete-objects",
+                        "--bucket",
+                        bucket,
+                        "--delete",
+                        json.dumps({"Objects": objects, "Quiet": True}),
+                    ],
+                    json_output=True,
+                )
+                if response.get("Errors"):
+                    raise RuntimeError(
+                        f"failed to delete temporary source versions: {response['Errors']}"
+                    )
 
 
 def parse_args() -> argparse.Namespace:
