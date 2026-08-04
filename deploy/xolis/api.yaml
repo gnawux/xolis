@@ -36,6 +36,8 @@ spec:
               value: kubernetes
             - name: XOLIS_SANDBOX_NAMESPACE
               value: xolis-sandboxes
+            - name: XOLIS_PROFILE
+              value: python-basic-v1
             - name: XOLIS_WARM_POOL
               value: python-basic-v1-pool
             - name: XOLIS_ROUTER_URL

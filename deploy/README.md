@@ -109,6 +109,11 @@ separate `hermes-agent-pvm-v1` profile with `RuntimeClass/xolis-kata-pvm` while
 reusing the ordinary OCI Hermes image. This keeps PVM qualification isolated
 from the stable OCI and Nydus profiles.
 
+The base API Deployment explicitly sets `XOLIS_PROFILE=python-basic-v1` and
+`XOLIS_WARM_POOL=python-basic-v1-pool`. Reapplying the base manifests therefore
+converges the API back to the native-KVM profile after a PVM or Hermes run that
+temporarily changed those values with `kubectl set env`.
+
 The August 4, 2026 PVM lifecycle run used API digest
 `sha256:0efdfe3c540b496827929069c73f31794fbe9e832ddbff7b33283d0ef1c03b82`,
 router digest

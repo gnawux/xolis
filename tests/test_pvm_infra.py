@@ -6,6 +6,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PvmInfrastructureTests(unittest.TestCase):
+    def test_base_deployment_converges_api_to_the_native_profile(self) -> None:
+        deployment = (ROOT / "deploy/xolis/api.yaml").read_text(encoding="utf-8")
+        self.assertIn("name: XOLIS_PROFILE\n              value: python-basic-v1", deployment)
+        self.assertIn(
+            "name: XOLIS_WARM_POOL\n              value: python-basic-v1-pool",
+            deployment,
+        )
+
     def test_runtime_profiles_restart_services_after_node_loss(self) -> None:
         profiles = (
             ROOT / "deploy/xolis/python-profile.yaml",
