@@ -52,8 +52,10 @@ EKS 1.35 cluster through an isolated node pool and passed the CNI-backed
 virtio-net, DNS, public and denied egress, NetworkPolicy, Kubernetes scheduling,
 service restart, and cold node replacement gates. The complete Xolis lifecycle
 has passed through the buffered command, SSE streaming, interactive PTY, file,
-policy, deletion, TTL, and warm-pool paths. Hermes, broader failure injection,
-and native-KVM regression remain open.
+policy, deletion, TTL, and warm-pool paths. The Hermes image and CLI bootstrap
+have also passed through both buffered and PTY paths without a model call. A
+model-backed Hermes workflow, broader failure injection, and native-KVM
+regression remain open.
 
 ## 2. Confirmed Baseline and Constraints
 
@@ -278,11 +280,11 @@ Status as of August 4, 2026:
 | 3. Dragonball bring-up | CPU, memory, block, vsock, time, inline virtio-fs, xattrs, repeated start, teardown, VPC CNI networking, DNS, and egress policy passed. | Add focused failure injection beyond service and node replacement. |
 | 4. Runtime-rs integration | Dedicated `xolis-kata-pvm` handler, readiness validation, direct CRI and kubelet execution, one/two vCPUs, service restart, and cleanup passed. | Run the native-KVM regression gate. |
 | 5. Isolated node pool | Launch template, ASG, labels, taints, RuntimeClass, profile, cold replacement, independent scheduling, no-fallback behavior, and scale-to-zero cleanup passed. | Repeat during release qualification. |
-| 6. Xolis lifecycle | Core create, placement, buffered and SSE commands, interactive PTY, file, policy, explicit deletion, TTL, cold claim, warm-pool claim, reset, and cleanup paths passed. | Qualify Hermes, node loss, and broader failure injection. |
+| 6. Xolis lifecycle | Core create, placement, buffered and SSE commands, interactive PTY, file, policy, explicit deletion, TTL, cold claim, warm-pool claim, reset, cleanup, and Hermes CLI bootstrap paths passed. | Qualify a model-backed Hermes workflow, node loss, and broader failure injection. |
 | 7. Operations and security | Artifact provenance and initial diagnostics are documented. | Complete CVE ownership, `pti=off` risk acceptance, upgrade, rollback, replacement, and incident procedures. |
 
-The critical path is therefore the remaining Phase 6 Hermes and failure gates,
-followed by the native-KVM regression.
+The critical path is therefore the remaining Phase 6 model-backed Hermes and
+failure gates, followed by the native-KVM regression.
 Large-cluster performance and density remain outside this milestone.
 
 ### Phase 0: Pin Inputs and Provenance

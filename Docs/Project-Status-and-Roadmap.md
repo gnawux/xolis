@@ -16,8 +16,9 @@ kernel, runtime-rs, and Dragonball combination has passed standalone host and
 CRI qualification, and the immutable AMI pipeline has passed its reboot and
 publication gate. The isolated EKS node pool and CNI data path have also passed
 their first qualification. The core Xolis lifecycle, including SSE and
-interactive PTY, has passed; Hermes, failure injection, and native-KVM
-regression remain in progress.
+interactive PTY, has passed. The Hermes image and CLI bootstrap have passed
+without a model call; a model-backed Hermes workflow, failure injection, and
+native-KVM regression remain in progress.
 
 ## 1. Current Development Progress
 
@@ -180,8 +181,9 @@ Important current limitations are:
   Dragonfly distribution is not implemented;
 - PVM is validated through the immutable AMI, isolated EKS scheduling, and
   CNI-backed guest network and core Xolis lifecycle boundary, including SSE
-  streaming and interactive PTY, but Hermes, broader failure injection, kernel
-  operations policy, and native-KVM regression gates have not completed; and
+  streaming, interactive PTY, and Hermes CLI bootstrap, but a model-backed
+  Hermes workflow, broader failure injection, kernel operations policy, and
+  native-KVM regression gates have not completed; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -264,10 +266,11 @@ release gates remain in
 
 Remaining development, in order:
 
-1. Complete the remaining provider-neutral lifecycle gates on PVM: Hermes,
-   node loss, and broader failure injection. Preserve the already passing
-   buffered and SSE commands, interactive PTY, file, policy, deletion, TTL,
-   warm-pool reset, no-fallback, and repeated cleanup paths as regressions.
+1. Complete the remaining provider-neutral lifecycle gates on PVM: a
+   model-backed Hermes workflow, node loss, and broader failure injection.
+   Preserve the already passing buffered and SSE commands, interactive PTY,
+   Hermes CLI bootstrap, file, policy, deletion, TTL, warm-pool reset,
+   no-fallback, and repeated cleanup paths as regressions.
 2. Run the native-KVM regression suite from the same release candidate, then
    validate ordinary OCI on PVM. Treat Nydus as a later optional PVM test and
    keep Dragonfly outside the first PVM release gate.

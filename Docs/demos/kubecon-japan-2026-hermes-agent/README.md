@@ -25,8 +25,8 @@ time of evaluation).
 
 Historical immutable references from the 2026-07-28 AWS lab run were:
 
-- OCI: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568`
-- Nydus: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`
+- OCI: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:768be3793bc15cd06500890be65beccc76371e12ea03ba5e4e805b3f507accb9`
+- Nydus: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:3171982074bed7c91830958318d5ed41066b7f7b44aeeb1d584a6ae01d676353`
 - API: `479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-api@sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`
 
 The demo AWS environment, ECR repositories, and AMI were deleted after the

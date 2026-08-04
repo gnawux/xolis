@@ -267,5 +267,7 @@ Sandbox, or Pod. The PVM ASG returned to zero, its instance terminated, and a
 PVM RuntimeClass Pod remained Pending on the system-only cluster rather than
 falling back to another runtime. A later run also passed ordered SSE output and
 WebSocket/PTTY input, output, and exit handling after the runtime image added
-its missing `websockets` dependency. Hermes, broader failure injection, and
-native-KVM regression remain open.
+its missing `websockets` dependency. The Hermes image and `hermes --help` then
+passed through both buffered and PTY paths on the PVM node without a model
+call. A model-backed Hermes workflow, broader failure injection, and native-KVM
+regression remain open.

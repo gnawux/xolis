@@ -118,7 +118,7 @@ the digest-pinned OCI image as the fallback while publishing and validating a
 separately tagged Nydus image for `python-nydus-v1`.
 
 The final Hermes validation used Nydus pull digest
-`sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`.
+`sha256:3171982074bed7c91830958318d5ed41066b7f7b44aeeb1d584a6ae01d676353`.
 One fresh-node sample pulled it in 0.585 seconds and reached Ready in 16.601
 seconds. The corresponding OCI sample pulled in 4.696 seconds and reached Ready
 in 10.415 seconds. These single, ordered samples are diagnostic only; they show

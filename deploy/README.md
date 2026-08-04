@@ -117,8 +117,10 @@ and Python runtime digest
 `sha256:7dedcfad0e74773d7ec68a613ec76909efc70cbb5351c4f6c8a7df89d32be027`.
 Core service acceptance, TTL, cold and warm claims, reset, SSE streaming,
 interactive PTY, and scale-to-zero cleanup passed. The PTY gate found and
-fixed a missing runtime `websockets` dependency before passing. Hermes remains
-a separate PVM gate.
+fixed a missing runtime `websockets` dependency before passing. The separate
+Hermes PVM profile subsequently passed image startup and `hermes --help`
+through both buffered and PTY paths without a model call. A model-backed Hermes
+workflow remains a separate PVM gate.
 
 ## Optional Hermes Agent Profile
 
@@ -133,9 +135,9 @@ default kustomization.
 The 2026-07-28 AWS lab validation used API digest
 `sha256:c92e4ad57456b8310722540732f61ba9047d29b525266af16318bec4619db1ae`,
 OCI Hermes digest
-`sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568`,
+`sha256:768be3793bc15cd06500890be65beccc76371e12ea03ba5e4e805b3f507accb9`,
 and Nydus Hermes digest
-`sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5`.
+`sha256:3171982074bed7c91830958318d5ed41066b7f7b44aeeb1d584a6ae01d676353`.
 Both image modes passed the service smoke test. The Nydus profile additionally
 passed `hermes --help`, ordered SSE output, and WebSocket/PTTY input/output
 without model configuration.
