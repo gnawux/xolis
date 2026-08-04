@@ -45,6 +45,40 @@ Build intermediates use a unique directory under `/opt/xolis-build` and are
 removed after success or failure. Artifact output is retained for collection by
 the image pipeline.
 
+## Runtime Integration
+
+After installing the PVM host kernel and the pinned Kata runtime-rs build, add
+the PVM guest kernel and isolated containerd handler with:
+
+```console
+sudo image/aws/pvm/scripts/install-runtime-integration.sh
+sudo image/aws/pvm/scripts/validate-runtime.sh
+```
+
+The installer registers `xolis-kata-pvm` without changing the existing
+`xolis-kata` handler. It installs the guest kernel at
+`/opt/kata/share/kata-containers/vmlinux-pvm`, creates the PVM-specific
+Dragonball configuration, removes the unsupported `announce_submounts`
+inline-virtio-fs option, and loads the PVM containerd fragment through the
+existing import helper. The handler passes only the explicitly supported Kata
+CPU and memory annotations.
+
+Run the standalone functional smoke test with:
+
+```console
+sudo PVM_SMOKE_VCPUS=2 image/aws/pvm/scripts/smoke-runtime.sh
+```
+
+The default skips the network transfer because an unjoined builder has no CNI
+data plane. On a node with a working CNI, set
+`PVM_SMOKE_REQUIRE_NETWORK=true`; the test then uses a Pod network namespace
+and requires DNS plus an HTTP transfer to pass.
+
+`package-runtime.sh` validates the installed combination and creates a
+compressed archive plus machine-readable manifest. It does not upload the
+archive or select a bucket; the image pipeline or operator must copy the output
+from `/opt/xolis-artifacts/runtime/` to durable artifact storage.
+
 ## Required Validation
 
 `validate-kernel-config.py` checks the final configs after Kconfig dependency
@@ -69,15 +103,21 @@ passed. The build produced the following primary artifacts:
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| Host kernel RPM | 397,200,338 bytes | `990dff8111d2165909678c837f515c82f237d8c4d9b6d8ab38b823d638d9d720` |
-| Guest `vmlinux-pvm` | 275,187,768 bytes | `b0c84dfe6b5b80fa42c6979eb51a34eac74813ec329ca8b7d7753383327caa49` |
+| Host kernel RPM | 396,955,961 bytes | `6b1d89f9b32929715bcad6e76d973b66b25491e77a93554bd80d8090c8f8f8fc` |
+| Guest `vmlinux-pvm` | 275,187,768 bytes | `c483d65f4882e7e6a879716a46faffd04941f902224d6fcf069765af796c1bce` |
 | Final host config | 160,535 bytes | `a1e1eeb653ee1922f876d367d4a0e59865c7577488802086f876cd26e2fe7a61` |
 | Final guest config | 89,566 bytes | `3f943fb0d8e5477aaf50fcc5db8ebe3512a4cd03fcf2136271aa3cd414c1f8b0` |
 
-The RPM metadata includes both `kvm-pvm.ko` and `ena.ko`. All temporary probe
-and builder instances and their attached volumes were terminated after the
-test. The next phase must rebuild or publish the artifacts through the AMI
-pipeline rather than depending on this disposable test output.
+The RPM metadata includes both `kvm-pvm.ko` and `ena.ko`. The published build
+manifest is authoritative for artifact identity; build timestamps mean that a
+separate rebuild from the same source and configuration need not be bitwise
+identical.
+
+The private, versioned artifact prefix is:
+
+```text
+s3://xolis-pvm-artifacts-479874045111-ap-northeast-1/pvm/91e9c9be4472756890844b2c982d7c72252dbfe6/
+```
 
 ## Verified Host Boot
 
@@ -98,7 +138,45 @@ pipeline must install `files/xolis-pvm.modules-load.conf` as
 `/etc/modules-load.d/xolis-pvm.conf`; otherwise `/dev/kvm` is absent after a
 fresh start until an operator runs `modprobe kvm-pvm`.
 
-The retained validation instance is stopped. It contains the kernel artifacts
-for the next Dragonball test, but the EKS base image does not contain Kata,
-runtime-rs, or Dragonball binaries. No Dragonball guest boot was attempted in
-this host-only validation.
+## Verified Runtime-rs and Dragonball Path
+
+The pinned Kata 4.0.0 runtime-rs build at commit
+`cf82bb35c80320178bf7570252fe75d6fb263209`, with upstream Dragonball and the
+two seccomp fixes recorded by `/etc/xolis/kata-build`, was validated on the PVM
+host on August 4, 2026. The AWS nested-KVM CPUID workaround was disabled.
+
+Validation covered:
+
+- repeated Dragonball guest start and teardown through containerd;
+- the dedicated `xolis-kata-pvm` CRI handler;
+- one-vCPU and two-vCPU guest boot;
+- Kata Agent communication over vsock and block-backed guest rootfs;
+- a 64 MiB memory write-and-verify workload and monotonic time;
+- host-to-guest and guest-to-host inline-virtio-fs access;
+- `setxattr`, `getxattr`, `listxattr`, and `removexattr`, including the prior
+  Dragonball seccomp regression area;
+- command output and exit-code propagation; and
+- teardown with no remaining Pod sandbox, container, shim, or mount.
+
+Five consecutive cached-image CRI runs of the two-vCPU functional smoke test
+completed in 4,457, 4,487, 4,494, 4,528, and 4,487 milliseconds. This is a
+single-node integration measurement, not a density or large-cluster benchmark.
+
+The standalone node has no CNI binaries or CNI configuration, so guest
+virtio-net, DNS, and egress remain a required gate on the first PVM EKS node.
+The failed standalone DNS attempt is not evidence of a Dragonball network
+defect because no Pod data plane existed.
+
+The validated runtime bundle is stored at:
+
+```text
+s3://xolis-pvm-artifacts-479874045111-ap-northeast-1/kata/4.0.0/cf82bb35c80320178bf7570252fe75d6fb263209/pvm-91e9c9be4472756890844b2c982d7c72252dbfe6/
+```
+
+The compressed archive is 2,262,616,605 bytes with SHA-256
+`ca4781bea4684834c6dda05f8b030795114b7be48868e210b6149944376b538b`.
+Its adjacent manifest records the hashes of `kata-runtime`,
+`containerd-shim-kata-v2`, the PVM guest kernel, runtime configuration, and
+build provenance. The retained validation instance is stopped after testing;
+its 200 GiB root EBS volume is retained only to accelerate the next AMI and
+network qualification session.

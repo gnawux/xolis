@@ -1,0 +1,9 @@
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata-pvm]
+  runtime_type = "io.containerd.kata.v2"
+  pod_annotations = [
+    "io.katacontainers.config.hypervisor.default_memory",
+    "io.katacontainers.config.hypervisor.default_vcpus",
+  ]
+
+  [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.xolis-kata-pvm.options]
+    ConfigPath = "/etc/kata-containers/configuration-xolis-pvm-dragonball.toml"

@@ -33,6 +33,24 @@ Initial scope is functional qualification on x86_64 without provider-supplied
 VT-x or AMD-V. Large-cluster performance, density, Spot-market economics,
 migration, snapshotting, and PMU virtualization are deferred.
 
+## Current Qualification Status
+
+As of August 4, 2026, the pinned PVM host and guest kernels boot successfully
+on a `c7i.4xlarge` instance that exposes neither `vmx` nor `svm`. Kata 4.0.0
+runtime-rs with upstream Dragonball has passed direct containerd and CRI
+testing with one and two guest vCPUs, block rootfs, vsock, memory and time,
+inline virtio-fs, xattrs, output and exit-code propagation, repeated lifecycle,
+and cleanup. The PVM-specific handler is `xolis-kata-pvm`; the stable handler
+remains unchanged.
+
+The matching kernel and runtime bundles are retained in the private,
+versioned bucket `s3://xolis-pvm-artifacts-479874045111-ap-northeast-1/` under
+the exact PVM and Kata commit prefixes. The first PVM EKS node must still
+qualify the CNI-backed virtio-net, DNS, egress, Kubernetes scheduling, and
+native-KVM regression gates. The standalone builder has no CNI binaries or
+configuration, so its host-network CRI smoke test cannot provide valid network
+evidence.
+
 ## 2. Confirmed Baseline and Constraints
 
 | Item | Development baseline |

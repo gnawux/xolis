@@ -2,8 +2,13 @@
 set -euo pipefail
 
 config_path="${XOLIS_CONTAINERD_CONFIG_PATH:-/etc/containerd/config.toml}"
-fragment_path="/etc/containerd/conf.d/xolis-kata.toml"
-fragment_reference='"/etc/containerd/conf.d/xolis-kata.toml"'
+fragment_path="${XOLIS_CONTAINERD_FRAGMENT_PATH:-/etc/containerd/conf.d/xolis-kata.toml}"
+fragment_reference="\"${fragment_path}\""
+
+if [[ ! -f "${fragment_path}" ]]; then
+  echo "containerd configuration fragment was not found at ${fragment_path}" >&2
+  exit 1
+fi
 
 if [[ ! -f "${config_path}" ]]; then
   echo "containerd configuration was not found at ${config_path}" >&2

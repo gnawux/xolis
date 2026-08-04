@@ -121,13 +121,45 @@ class AmiAssetTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temporary_directory:
             configuration_path = Path(temporary_directory) / "config.toml"
+            fragment_path = Path(temporary_directory) / "xolis-kata.toml"
             configuration_path.write_text("version = 2\nimports = []\n", encoding="utf-8")
-            environment = os.environ | {"XOLIS_CONTAINERD_CONFIG_PATH": str(configuration_path)}
+            fragment_path.write_text("# test fragment\n", encoding="utf-8")
+            environment = os.environ | {
+                "XOLIS_CONTAINERD_CONFIG_PATH": str(configuration_path),
+                "XOLIS_CONTAINERD_FRAGMENT_PATH": str(fragment_path),
+            }
             helper_path = ROOT / "image/aws/scripts/enable-containerd-import"
             subprocess.run(["bash", str(helper_path)], check=True, env=environment)
             subprocess.run(["bash", str(helper_path)], check=True, env=environment)
             configuration = configuration_path.read_text(encoding="utf-8")
-            self.assertEqual(configuration.count("xolis-kata.toml"), 1)
+            self.assertEqual(configuration.count(str(fragment_path)), 1)
+
+    def test_pvm_runtime_uses_an_isolated_handler(self) -> None:
+        fragment = (
+            ROOT / "image/aws/pvm/files/containerd-xolis-kata-pvm.toml"
+        ).read_text(encoding="utf-8")
+        installer = (
+            ROOT / "image/aws/pvm/scripts/install-runtime-integration.sh"
+        ).read_text(encoding="utf-8")
+        validator = (
+            ROOT / "image/aws/pvm/scripts/validate-runtime.sh"
+        ).read_text(encoding="utf-8")
+        smoke_test = (
+            ROOT / "image/aws/pvm/scripts/smoke-runtime.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("runtimes.xolis-kata-pvm]", fragment)
+        self.assertIn("configuration-xolis-pvm-dragonball.toml", fragment)
+        self.assertIn("pod_annotations", fragment)
+        self.assertIn("default_vcpus", fragment)
+        self.assertIn("vmlinux-pvm", installer)
+        self.assertIn("announce_submounts", installer)
+        self.assertIn("PVM_INSTALL_RUNTIME_DEFAULT", installer)
+        self.assertIn("KVM_GET_API_VERSION", validator)
+        self.assertIn("nested_kvm_cpuid_workaround=true", validator)
+        self.assertIn("runp --runtime", smoke_test)
+        self.assertIn("PVM_RUNTIME_SMOKE_OK", smoke_test)
+        self.assertIn("os.listxattr", smoke_test)
 
 
 if __name__ == "__main__":
