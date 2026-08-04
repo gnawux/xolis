@@ -44,6 +44,12 @@ class PvmAssetTests(unittest.TestCase):
         )
         self.assertNotIn("  curl \\\n", installer)
 
+    def test_pvm_module_is_configured_for_boot_time_loading(self) -> None:
+        modules = (PVM / "files/xolis-pvm.modules-load.conf").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(modules, "kvm-pvm\n")
+
     def test_host_and_guest_fragments_keep_the_paths_separate(self) -> None:
         host = (PVM / "config/host-pvm.fragment").read_text(encoding="utf-8")
         guest = (PVM / "config/guest-pvm.fragment").read_text(encoding="utf-8")

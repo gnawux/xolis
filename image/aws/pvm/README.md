@@ -78,3 +78,27 @@ The RPM metadata includes both `kvm-pvm.ko` and `ena.ko`. All temporary probe
 and builder instances and their attached volumes were terminated after the
 test. The next phase must rebuild or publish the artifacts through the AMI
 pipeline rather than depending on this disposable test output.
+
+## Verified Host Boot
+
+The host kernel was installed and booted on a standard `c7i.4xlarge` instance
+in `ap-northeast-1a` on August 4, 2026. The instance did not expose `vmx` or
+`svm` CPU flags. Validation confirmed:
+
+- the running kernel was `6.12.33-xolis-pvm`;
+- `/proc/cmdline` contained `pti=off`;
+- the ENA network device, NVMe root volume, XFS filesystem, and SSM access
+  survived the reboot;
+- `kvm-pvm.ko` loaded without `kvm-intel` or `kvm-amd`;
+- `/dev/kvm` was created; and
+- `KVM_GET_API_VERSION` returned `12`.
+
+The PVM module is not loaded automatically by the kernel package. The AMI
+pipeline must install `files/xolis-pvm.modules-load.conf` as
+`/etc/modules-load.d/xolis-pvm.conf`; otherwise `/dev/kvm` is absent after a
+fresh start until an operator runs `modprobe kvm-pvm`.
+
+The retained validation instance is stopped. It contains the kernel artifacts
+for the next Dragonball test, but the EKS base image does not contain Kata,
+runtime-rs, or Dragonball binaries. No Dragonball guest boot was attempted in
+this host-only validation.
