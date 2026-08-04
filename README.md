@@ -48,8 +48,9 @@ node registration, guest boot, CNI, DNS, egress, NetworkPolicy, service restart,
 and cold node replacement tests. The core Xolis API lifecycle, TTL cleanup,
 cold and warm-pool claims, SSE streaming, and interactive PTY have passed on
 PVM. The Hermes image and its CLI also start through the PVM PTY path, without
-a model call. PVM is not yet a release path: a model-backed Hermes workflow,
-failure-injection, and native-KVM regression gates remain open.
+a model call. PVM node-loss recovery and the independent native-KVM lifecycle
+regression have also passed. PVM is not yet a release path: a model-backed
+Hermes workflow and broader failure-injection gates remain open.
 
 Current pre-scale development therefore has two parallel priorities: separate
 the provider-neutral lifecycle and capacity contract from the AWS adapter, and

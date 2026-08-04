@@ -77,10 +77,10 @@ For comparable On-Demand instances, the native nested-virtualization premium is 
 Use native AWS nested virtualization as the default Xolis path. Begin with supported M8i or C8i nodes, a standard Amazon Linux 2023 kernel, and Kata Containers.
 
 Keep PVM as an experimental capability with a separate AMI and node group. The
-next investment should productize the verified artifact set through an
-immutable AMI, isolated EKS node pool, CNI qualification, and full lifecycle
-testing. Consider activating it for users only when one or more of the
-following conditions are true:
+verified artifact set now has an immutable AMI, isolated EKS node pool, CNI
+qualification, lifecycle testing, node-loss recovery, and a passing native-KVM
+fallback regression. Consider activating it for users only when one or more of
+the following conditions are true:
 
 - A target Region or Availability Zone lacks viable capacity for supported nested-virtualization instances.
 - A Spot-capacity analysis shows a material and sustained advantage for a PVM-compatible pool.
@@ -97,9 +97,6 @@ The following questions are intentionally deferred to a controlled benchmark and
 - Steady-state CPU overhead.
 - Memory overhead and sandbox density per node.
 - I/O, network, and image-lazy-loading performance.
-- CNI-backed guest networking, network policy, and Kubernetes lifecycle
-  compatibility.
-- Native-KVM regression and fallback behavior.
 - Security behavior and vulnerability response process.
 - Upgrade, rollback, and node-replacement operations.
 - Instance-family, Availability Zone, and Spot-capacity coverage.

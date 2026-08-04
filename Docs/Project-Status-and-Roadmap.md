@@ -17,8 +17,9 @@ CRI qualification, and the immutable AMI pipeline has passed its reboot and
 publication gate. The isolated EKS node pool and CNI data path have also passed
 their first qualification. The core Xolis lifecycle, including SSE and
 interactive PTY, has passed. The Hermes image and CLI bootstrap have passed
-without a model call; a model-backed Hermes workflow, failure injection, and
-native-KVM regression remain in progress.
+without a model call. PVM node-loss recovery and an independent native-KVM
+lifecycle regression have also passed; a model-backed Hermes workflow and
+broader failure injection remain in progress.
 
 ## 1. Current Development Progress
 
@@ -71,6 +72,16 @@ The PVM investigation has moved beyond source-build feasibility:
   denied egress, explicit deletion, TTL cleanup, cold claims, a one-replica
   warm pool, reset, SSE streaming, interactive PTY, no-fallback scheduling,
   and ASG scale-to-zero cleanup.
+
+The native-KVM fallback was rebuilt from the EKS 1.35 AL2023 baseline as
+`ami-06afb1bb0f61cf03b` and passed the automated service lifecycle regression
+on August 4, 2026. The run covered placement, idempotency and tenant isolation,
+buffered command behavior, file operations and bounds, denied egress, explicit
+cleanup, and TTL cleanup. Sandbox Ready took 18.158 seconds in this single cold
+sample; this is a functional regression result, not a performance baseline.
+Packer returned an AWS API `EOF` during final cleanup after the AMI and snapshot
+were already available; the builder, temporary IAM objects, security group, and
+key pair were then cleaned manually and verified absent.
 
 Five consecutive cached-image two-vCPU CRI smoke runs completed in 4.457 to
 4.528 seconds. This is a single-host integration measurement, not a sandbox
@@ -181,9 +192,10 @@ Important current limitations are:
   Dragonfly distribution is not implemented;
 - PVM is validated through the immutable AMI, isolated EKS scheduling, and
   CNI-backed guest network and core Xolis lifecycle boundary, including SSE
-  streaming, interactive PTY, and Hermes CLI bootstrap, but a model-backed
-  Hermes workflow, broader failure injection, kernel operations policy, and
-  native-KVM regression gates have not completed; and
+  streaming, interactive PTY, Hermes CLI bootstrap, and node-loss recovery;
+  the native-KVM lifecycle regression also passes, but a model-backed Hermes
+  workflow, broader failure injection, and kernel operations policy have not
+  completed; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -267,12 +279,12 @@ release gates remain in
 Remaining development, in order:
 
 1. Complete the remaining provider-neutral lifecycle gates on PVM: a
-   model-backed Hermes workflow, node loss, and broader failure injection.
+   model-backed Hermes workflow and broader failure injection.
    Preserve the already passing buffered and SSE commands, interactive PTY,
    Hermes CLI bootstrap, file, policy, deletion, TTL, warm-pool reset,
    no-fallback, and repeated cleanup paths as regressions.
-2. Run the native-KVM regression suite from the same release candidate, then
-   validate ordinary OCI on PVM. Treat Nydus as a later optional PVM test and
+2. Preserve the passing native-KVM lifecycle regression and ordinary OCI PVM
+   path on each release candidate. Treat Nydus as a later optional PVM test and
    keep Dragonfly outside the first PVM release gate.
 3. Complete readiness diagnostics, kernel CVE and rebase ownership, host
    `pti=off` risk documentation, AMI upgrade and rollback, and node replacement
