@@ -42,10 +42,11 @@ tests with the dedicated `xolis-kata-pvm` handler, including one- and two-vCPU
 boot, block rootfs, vsock, memory, inline virtio-fs, xattrs, exit propagation,
 and repeated cleanup. The matched kernel and runtime artifacts are archived
 with manifests and checksums, and a separate immutable PVM AMI pipeline now
-installs, reboots, validates, and publishes that exact artifact set. PVM is not
-yet an EKS-ready release: the next steps are an isolated node pool and
-RuntimeClass, CNI qualification, and the complete Xolis lifecycle and
-native-KVM regression suites.
+installs, reboots, validates, and publishes that exact artifact set. An
+isolated EKS PVM node pool and `RuntimeClass/xolis-kata-pvm` have also passed
+node registration, guest boot, CNI, DNS, egress, NetworkPolicy, service restart,
+and cold node replacement tests. PVM is not yet a release path: the complete
+Xolis lifecycle and native-KVM regression suites remain open.
 
 Current pre-scale development therefore has two parallel priorities: separate
 the provider-neutral lifecycle and capacity contract from the AWS adapter, and

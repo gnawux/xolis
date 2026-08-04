@@ -18,6 +18,7 @@ class PvmInfrastructureTests(unittest.TestCase):
         self.assertIn('variable "pvm_ami_id"', variables)
         self.assertIn("count = var.pvm_ami_id == null ? 0 : 1", pvm_launch_template)
         self.assertNotIn("nested_virtualization", pvm_launch_template)
+        self.assertIn('imports = ["/etc/containerd/conf.d/*.toml"]', pvm_launch_template)
         self.assertIn("xolis.io/virtualization=pvm", pvm_launch_template)
         self.assertIn("xolis.io/pvm-ready=true", pvm_launch_template)
         self.assertIn("xolis.io/pvm=true:NoSchedule", pvm_launch_template)

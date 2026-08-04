@@ -30,6 +30,11 @@ template and ASG. PVM nodes receive `xolis.io/virtualization=pvm` and
 taint. They remain distinct from the native-KVM sandbox ASG and can be scaled
 or destroyed independently.
 
+The nodeadm configuration explicitly imports `/etc/containerd/conf.d/*.toml`.
+This is required because EKS bootstrap regenerates `/etc/containerd/config.toml`;
+without the node-level merge, runtime fragments installed in a custom AMI are
+present on disk but absent from the effective CRI configuration.
+
 ## Prepare Configuration
 
 Copy the example and set the IAM Identity Center role ARN that is used through the `xolis-lab` AWS CLI profile:

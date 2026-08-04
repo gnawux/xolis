@@ -241,6 +241,9 @@ resource "aws_launch_template" "sandbox" {
         apiServerEndpoint: ${aws_eks_cluster.this.endpoint}
         certificateAuthority: ${aws_eks_cluster.this.certificate_authority[0].data}
         cidr: ${aws_eks_cluster.this.kubernetes_network_config[0].service_ipv4_cidr}
+      containerd:
+        config: |
+          imports = ["/etc/containerd/conf.d/*.toml"]
       kubelet:
         config:
           featureGates:
@@ -334,6 +337,9 @@ resource "aws_launch_template" "pvm" {
         apiServerEndpoint: ${aws_eks_cluster.this.endpoint}
         certificateAuthority: ${aws_eks_cluster.this.certificate_authority[0].data}
         cidr: ${aws_eks_cluster.this.kubernetes_network_config[0].service_ipv4_cidr}
+      containerd:
+        config: |
+          imports = ["/etc/containerd/conf.d/*.toml"]
       kubelet:
         config:
           featureGates:

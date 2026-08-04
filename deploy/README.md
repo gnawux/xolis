@@ -95,6 +95,9 @@ kubectl wait --for=condition=Ready pod/xolis-kata-pvm-smoke \
 both the sandbox and PVM taints. It cannot fall back to the native-KVM pool.
 The smoke Pod checks guest boot, cluster DNS, and public HTTPS egress. Delete
 the Pod and return the PVM ASG to desired capacity zero after qualification.
+The AWS NodeConfig must preserve `/etc/containerd/conf.d/*.toml` imports when
+nodeadm generates the final containerd configuration; otherwise kubelet reports
+that `xolis-kata-pvm` is not configured even though the fragment exists.
 
 For full lifecycle testing, apply `deploy/xolis/python-profile-pvm.yaml` after
 Agent Sandbox and the base Xolis deployment are installed. This adds the

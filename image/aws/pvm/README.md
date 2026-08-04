@@ -220,6 +220,31 @@ Packer terminated builder `i-0d1a264230f14176d`; an AWS-side audit also
 confirmed no Packer security group, key pair, IAM role, or instance profile
 remained after cleanup.
 
-This proves the immutable image stage only. EKS node registration, VPC CNI,
-DNS, network policy, Kubernetes scheduling, and full Xolis lifecycle testing
-remain separate qualification gates.
+AMI publication completed the immutable image stage. EKS qualification was
+performed separately against that published artifact, as recorded below.
+
+## Verified EKS Node and Network Path
+
+The AMI joined EKS 1.35 on a `c7i.xlarge` through the isolated
+`xolis-lab-pvm` ASG on August 4, 2026. The node registered with the PVM kernel,
+required labels and taints, VPC CNI, and `RuntimeClass/xolis-kata-pvm`.
+
+The first Kubernetes Pod exposed an integration defect: nodeadm regenerates
+`/etc/containerd/config.toml` and removed the AMI-time runtime import, so
+kubelet reported that `xolis-kata-pvm` was not configured. The launch-template
+NodeConfig now merges `imports = ["/etc/containerd/conf.d/*.toml"]` into the
+final containerd configuration. A fresh replacement node then passed without
+manual repair.
+
+The Kubernetes smoke test confirmed:
+
+- the guest booted `6.12.33-xolis-pvm-guest` through runtime-rs and Dragonball;
+- the Pod received a VPC CNI address;
+- cluster DNS resolved `kubernetes.default.svc.cluster.local`;
+- public HTTPS egress worked before policy enforcement;
+- a DNS-only NetworkPolicy preserved DNS and denied public egress; and
+- containerd and kubelet restarts preserved the runtime handler and subsequent
+  guest boot.
+
+The complete Xolis API lifecycle and native-KVM regression remain separate
+release gates.
