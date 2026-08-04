@@ -23,9 +23,10 @@ def render(image_reference: str, repository_root: Path, image_mode: str = "oci")
     modes = {
         "oci": ("hermes-agent-v1", "xolis-kata"),
         "nydus": ("hermes-agent-nydus-v1", "xolis-kata-nydus"),
+        "pvm": ("hermes-agent-pvm-v1", "xolis-kata-pvm"),
     }
     if image_mode not in modes:
-        raise ValueError("image mode must be 'oci' or 'nydus'")
+        raise ValueError("image mode must be 'oci', 'nydus', or 'pvm'")
     profile, runtime_class = modes[image_mode]
     return (
         template.replace("__HERMES_IMAGE_REFERENCE__", image_reference)
@@ -38,7 +39,9 @@ def render(image_reference: str, repository_root: Path, image_mode: str = "oci")
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image-reference", required=True)
-    parser.add_argument("--image-mode", choices=("oci", "nydus"), default="oci")
+    parser.add_argument(
+        "--image-mode", choices=("oci", "nydus", "pvm"), default="oci"
+    )
     args = parser.parse_args()
     print(
         render(

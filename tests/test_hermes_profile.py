@@ -31,6 +31,11 @@ class HermesProfileTests(unittest.TestCase):
         self.assertIn("runtimeClassName: xolis-kata-nydus", nydus)
         self.assertIn("xolis.io/image-mode: nydus", nydus)
 
+        pvm = MODULE.render(reference, ROOT, "pvm")
+        self.assertIn("name: hermes-agent-pvm-v1", pvm)
+        self.assertIn("runtimeClassName: xolis-kata-pvm", pvm)
+        self.assertIn("xolis.io/image-mode: pvm", pvm)
+
         with self.assertRaises(ValueError):
             MODULE.render("docker.io/xolis-runtime-hermes:latest", ROOT)
 

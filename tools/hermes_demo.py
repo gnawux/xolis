@@ -38,10 +38,12 @@ TENANT_HEADER = "x-xolis-tenant"
 DEFAULT_IMAGES = {
     "oci": "479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568",
     "nydus": "479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:4c8e52cb7ab790304d326fb1d952219e4a596f4ec111f024b04382cbd843f0c5",
+    "pvm": "479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-hermes@sha256:7c5c5e5dbbc11f958475c3b696932f5daf1bc93506bb671a281c8b5c28194568",
 }
 MODES = {
     "oci": ("hermes-agent-v1", "hermes-agent-v1-pool", "xolis-kata"),
     "nydus": ("hermes-agent-nydus-v1", "hermes-agent-nydus-v1-pool", "xolis-kata-nydus"),
+    "pvm": ("hermes-agent-pvm-v1", "hermes-agent-pvm-v1-pool", "xolis-kata-pvm"),
 }
 API_ENV_NAMES = (
     "XOLIS_PROFILE",

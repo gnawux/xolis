@@ -104,6 +104,11 @@ Agent Sandbox and the base Xolis deployment are installed. This adds the
 `python-pvm-v1` template and a zero-replica warm pool without changing the
 stable `python-basic-v1` profile.
 
+The Hermes renderer and demo tool accept `--image-mode pvm` to create the
+separate `hermes-agent-pvm-v1` profile with `RuntimeClass/xolis-kata-pvm` while
+reusing the ordinary OCI Hermes image. This keeps PVM qualification isolated
+from the stable OCI and Nydus profiles.
+
 The August 4, 2026 PVM lifecycle run used API digest
 `sha256:0efdfe3c540b496827929069c73f31794fbe9e832ddbff7b33283d0ef1c03b82`,
 router digest
