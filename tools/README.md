@@ -103,6 +103,12 @@ ends. Pass `--keep-prepared` to leave the API and warm pool ready for another
 demo. Run `python3 tools/hermes_demo.py --help` for all timeout and image
 options.
 
+When an operator has already configured the API and a one-replica warm pool,
+pass `--use-prepared` to claim that Ready sandbox without reapplying the
+profile or changing pool capacity. The tool verifies that the selected profile,
+API environment, and warm pool match before creating the claim, and leaves the
+prepared service running after the session.
+
 Use `--image-mode pvm` to run the ordinary OCI Hermes image through the
 isolated `xolis-kata-pvm` RuntimeClass. This requires a Ready PVM node and does
 not enable the Nydus image path.

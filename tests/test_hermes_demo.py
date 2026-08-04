@@ -121,6 +121,33 @@ class ClusterPreparationTests(unittest.TestCase):
         hermes_demo.wait_for_warm_pool("hermes-agent-v1-pool", 1, 30)
         self.assertEqual(kubectl_json.call_count, 2)
 
+    @mock.patch.object(hermes_demo, "wait_for_warm_pool")
+    @mock.patch.object(hermes_demo, "deployment_environment")
+    def test_prepared_environment_requires_matching_api_and_ready_pool(
+        self, environment, wait_for_warm_pool
+    ) -> None:
+        environment.return_value = {
+            "XOLIS_PROFILE": "hermes-agent-pvm-v1",
+            "XOLIS_WARM_POOL": "hermes-agent-pvm-v1-pool",
+        }
+        hermes_demo.verify_prepared_environment(
+            "hermes-agent-pvm-v1", "hermes-agent-pvm-v1-pool", 30
+        )
+        wait_for_warm_pool.assert_called_once_with(
+            "hermes-agent-pvm-v1-pool", 1, 30
+        )
+
+    @mock.patch.object(hermes_demo, "deployment_environment")
+    def test_prepared_environment_rejects_wrong_profile(self, environment) -> None:
+        environment.return_value = {
+            "XOLIS_PROFILE": "python-basic-v1",
+            "XOLIS_WARM_POOL": "python-basic-v1-pool",
+        }
+        with self.assertRaisesRegex(hermes_demo.DemoError, "not configured"):
+            hermes_demo.verify_prepared_environment(
+                "hermes-agent-pvm-v1", "hermes-agent-pvm-v1-pool", 30
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

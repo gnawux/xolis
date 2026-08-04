@@ -164,6 +164,27 @@ def configure_api(profile: str, warm_pool: str) -> dict[str, str | None]:
     return original
 
 
+def verify_prepared_environment(
+    profile: str, warm_pool: str, timeout_seconds: int
+) -> None:
+    current = deployment_environment()
+    expected = {
+        "XOLIS_PROFILE": profile,
+        "XOLIS_WARM_POOL": warm_pool,
+    }
+    mismatches = [
+        f"{name}={current.get(name, '<unset>')} (expected {value})"
+        for name, value in expected.items()
+        if current.get(name) != value
+    ]
+    if mismatches:
+        raise DemoError(
+            "xolis-api is not configured for the prepared Hermes service: "
+            + "; ".join(mismatches)
+        )
+    wait_for_warm_pool(warm_pool, 1, timeout_seconds)
+
+
 def restore_api(original: dict[str, str | None]) -> None:
     assignments = [
         f"{name}={value}" if value is not None else f"{name}-"
@@ -518,6 +539,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Keep the warm pool and Hermes API configuration after the session",
     )
+    parser.add_argument(
+        "--use-prepared",
+        action="store_true",
+        help="Claim an existing Ready warm sandbox without reapplying or scaling the profile",
+    )
     return parser.parse_args()
 
 
@@ -536,24 +562,28 @@ def main() -> int:
     try:
         if shutil.which("kubectl") is None:
             raise DemoError("kubectl is not installed or is not on PATH")
-        prepare_runtime_class(args.image_mode)
+        if not args.use_prepared:
+            prepare_runtime_class(args.image_mode)
         status("Checking the cluster, runtime, sandbox node, and credential Secret")
         ensure_prerequisites(runtime_class)
-        prepare_profile(args.image_mode, image_reference)
+        if args.use_prepared:
+            status("Using the existing Hermes profile and Ready warm pool")
+            verify_prepared_environment(profile, warm_pool, args.warm_pool_timeout)
+        else:
+            prepare_profile(args.image_mode, image_reference)
         if args.egress_manifest is not None:
             status("Applying the reviewed model-provider egress policy")
             run_kubectl(["apply", "-f", str(args.egress_manifest.resolve())])
+        elif args.use_prepared:
+            status("No egress manifest supplied; leaving the existing policy unchanged")
         else:
             status("No egress manifest supplied; the checked-in profile permits DNS only")
-        status("Configuring xolis-api for the Hermes profile")
-        current_environment = deployment_environment()
-        original_api = {
-            name: current_environment.get(name) for name in API_ENV_NAMES
-        }
-        original_api = configure_api(profile, warm_pool)
-        status("Warming one Hermes sandbox")
-        set_warm_pool(warm_pool, 1)
-        wait_for_warm_pool(warm_pool, 1, args.warm_pool_timeout)
+        if not args.use_prepared:
+            status("Configuring xolis-api for the Hermes profile")
+            original_api = configure_api(profile, warm_pool)
+            status("Warming one Hermes sandbox")
+            set_warm_pool(warm_pool, 1)
+            wait_for_warm_pool(warm_pool, 1, args.warm_pool_timeout)
         forwarding = PortForward()
         forwarding.__enter__()
         client = ApiClient(forwarding.port, args.tenant)
@@ -578,7 +608,7 @@ def main() -> int:
                 status(f"Warning: sandbox cleanup failed: {error}")
         if forwarding is not None:
             forwarding.__exit__(None, None, None)
-        if not args.keep_prepared:
+        if not args.keep_prepared and not args.use_prepared:
             status("Scaling the Hermes warm pool to zero")
             try:
                 set_warm_pool(warm_pool, 0)
