@@ -172,11 +172,15 @@ else
   grep -Fq '(libc::SYS_listxattr, vec![])' "${dragonball_seccomp_source}"
   grep -Fq '(libc::SYS_name_to_handle_at, vec![])' "${dragonball_seccomp_source}"
 
+  if [[ "${APPLY_AWS_NESTED_KVM_CPUID_WORKAROUND:-true}" == "true" ]]; then
 # AWS M8i nested KVM exposes a modern XSAVE feature set (including AVX-512 and
 # AMX) through KVM_GET_SUPPORTED_CPUID. Dragonball 4.0.0 passes those leaves to
 # the guest but does not provide a compatible CR4/XCR0 virtualization path.
 # The Kata guest kernel then faults in XSETBV before the agent starts. Keep the
 # ordinary x86 CPU features and mask only the xstate-dependent CPUID leaves.
+# PVM does not expose that nested-KVM feature set and must disable this
+# workaround so its upstream CPUID behavior is tested without an unrelated
+# AWS-specific source change.
   dragonball_cpuid_source="${kata_source_directory}/src/dragonball/crates/dbs_arch/src/x86_64/cpuid/transformer/intel.rs"
   python3 - "${dragonball_cpuid_source}" <<'PY'
 from pathlib import Path
@@ -217,6 +221,7 @@ if old not in source:
     raise SystemExit("Dragonball CPUID insertion point was not found")
 path.write_text(source.replace(old, new), encoding="utf-8")
 PY
+  fi
 
   curl --fail --location --retry 3 --proto '=https' --tlsv1.2 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.95
   source /root/.cargo/env
@@ -267,6 +272,8 @@ if [[ "${REUSE_EXISTING_KATA_RUNTIME:-false}" != "true" ]]; then
     for patch_commit in "${kata_patch_commits[@]}"; do
       printf 'patch_commit=%s\n' "${patch_commit}"
     done
+    printf 'nested_kvm_cpuid_workaround=%s\n' \
+      "${APPLY_AWS_NESTED_KVM_CPUID_WORKAROUND:-true}"
   } >"${kata_build_provenance}"
   chmod 0644 "${kata_build_provenance}"
 fi

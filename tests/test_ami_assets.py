@@ -23,6 +23,12 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("containerd.service.d/10-xolis-runtime.conf", installer)
         self.assertIn("REUSE_EXISTING_KATA_RUNTIME", installer)
         self.assertIn("Reusing the validated Kata runtime", installer)
+        self.assertIn("APPLY_AWS_NESTED_KVM_CPUID_WORKAROUND", installer)
+
+        packer = (ROOT / "image/aws/packer.pkr.hcl").read_text(encoding="utf-8")
+        self.assertIn(
+            '"APPLY_AWS_NESTED_KVM_CPUID_WORKAROUND=true"', packer
+        )
 
     def test_kata_seccomp_backport_is_applied_and_recorded(self) -> None:
         patch_directory = ROOT / "image/aws/patches/kata"

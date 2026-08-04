@@ -185,6 +185,7 @@ build {
       "KATA_ARCHIVE_URL=${var.kata_archive_url}",
       "KATA_ARCHIVE_SHA256=${var.kata_archive_sha256}",
       "KATA_SOURCE_COMMIT=${var.kata_source_commit}",
+      "APPLY_AWS_NESTED_KVM_CPUID_WORKAROUND=true",
       "REUSE_EXISTING_KATA_RUNTIME=${var.reuse_existing_kata_runtime}",
       "NYDUS_SNAPSHOTTER_VERSION=${var.nydus_snapshotter_version}",
       "NYDUS_SNAPSHOTTER_ARCHIVE_URL=${var.nydus_snapshotter_archive_url}",
