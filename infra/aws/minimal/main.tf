@@ -296,6 +296,108 @@ resource "aws_autoscaling_group" "sandbox" {
   ]
 }
 
+resource "aws_launch_template" "pvm" {
+  count = var.pvm_ami_id == null ? 0 : 1
+
+  name_prefix            = "${var.name}-pvm-"
+  image_id               = var.pvm_ami_id
+  instance_type          = var.pvm_instance_type
+  update_default_version = true
+
+  iam_instance_profile {
+    arn = aws_iam_instance_profile.sandbox.arn
+  }
+
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups             = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
+  }
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  user_data = base64encode(<<-EOF
+    MIME-Version: 1.0
+    Content-Type: multipart/mixed; boundary="NODECONFIG"
+
+    --NODECONFIG
+    Content-Type: application/node.eks.aws
+
+    apiVersion: node.eks.aws/v1alpha1
+    kind: NodeConfig
+    spec:
+      cluster:
+        name: ${aws_eks_cluster.this.name}
+        apiServerEndpoint: ${aws_eks_cluster.this.endpoint}
+        certificateAuthority: ${aws_eks_cluster.this.certificate_authority[0].data}
+        cidr: ${aws_eks_cluster.this.kubernetes_network_config[0].service_ipv4_cidr}
+      kubelet:
+        config:
+          featureGates:
+            RuntimeClassInImageCriApi: true
+        flags:
+          - "--node-labels=xolis.io/kata-ready=true,node-role.xolis.io/sandbox=true,xolis.io/virtualization=pvm,xolis.io/pvm-ready=true"
+          - "--register-with-taints=xolis.io/sandbox=true:NoSchedule,xolis.io/pvm=true:NoSchedule"
+    --NODECONFIG--
+    EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name           = "${var.name}-pvm"
+      Virtualization = "pvm"
+    }
+  }
+}
+
+resource "aws_autoscaling_group" "pvm" {
+  count = var.pvm_ami_id == null ? 0 : 1
+
+  name                  = "${var.name}-pvm"
+  vpc_zone_identifier   = values(aws_subnet.public)[*].id
+  min_size              = 0
+  desired_capacity      = 0
+  max_size              = 1
+  protect_from_scale_in = false
+
+  launch_template {
+    id      = aws_launch_template.pvm[0].id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${var.name}-pvm"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "kubernetes.io/cluster/${aws_eks_cluster.this.name}"
+    value               = "owned"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "xolis.io/virtualization"
+    value               = "pvm"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    ignore_changes = [desired_capacity]
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.node_worker,
+    aws_iam_role_policy_attachment.node_cni,
+    aws_iam_role_policy_attachment.node_ecr,
+  ]
+}
+
 locals {
   image_repositories = toset([
     "xolis/xolis-api",

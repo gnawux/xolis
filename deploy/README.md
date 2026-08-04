@@ -74,6 +74,33 @@ overlayfs snapshotter. The validated AMI `ami-0ec0906871c3a9d9b` contains the
 required CRI image-service mapping, local-pull compatibility settings, Nydus
 ECR credential provider configuration, and RAFS v6 daemon configuration.
 
+## PVM Qualification Add-on
+
+PVM is an independent experimental scheduling path. After enabling
+`pvm_ami_id` in `infra/aws/minimal`, apply the PVM RuntimeClass and scale the
+PVM ASG without changing the native-KVM ASG:
+
+```console
+kubectl apply -f deploy/bootstrap/xolis-runtime-pvm.yaml
+aws autoscaling update-auto-scaling-group \
+  --auto-scaling-group-name xolis-lab-pvm \
+  --min-size 0 --desired-capacity 1 --max-size 1
+kubectl get nodes -l xolis.io/pvm-ready=true -o wide
+kubectl apply -f deploy/tests/smoke-pvm-pod.yaml
+kubectl wait --for=condition=Ready pod/xolis-kata-pvm-smoke \
+  --namespace xolis-system --timeout=5m
+```
+
+`RuntimeClass/xolis-kata-pvm` requires the PVM capability labels and tolerates
+both the sandbox and PVM taints. It cannot fall back to the native-KVM pool.
+The smoke Pod checks guest boot, cluster DNS, and public HTTPS egress. Delete
+the Pod and return the PVM ASG to desired capacity zero after qualification.
+
+For full lifecycle testing, apply `deploy/xolis/python-profile-pvm.yaml` after
+Agent Sandbox and the base Xolis deployment are installed. This adds the
+`python-pvm-v1` template and a zero-replica warm pool without changing the
+stable `python-basic-v1` profile.
+
 ## Optional Hermes Agent Profile
 
 The Hermes evaluation uses a separate Python 3.12 image and a zero-replica

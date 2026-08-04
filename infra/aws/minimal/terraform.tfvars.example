@@ -10,3 +10,8 @@ owner               = "your-name"
 # Leave null for the initial EKS-compatible AL2023 AMI. Replace it with the
 # versioned Kata/Nydus sandbox AMI once the image build is available.
 sandbox_ami_id = null
+
+# Set both values to enable a separate PVM sandbox ASG. The PVM launch template
+# intentionally does not request EC2 nested virtualization.
+pvm_ami_id        = null
+pvm_instance_type = "c7i.xlarge"

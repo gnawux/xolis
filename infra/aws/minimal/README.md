@@ -6,6 +6,8 @@ This OpenTofu root creates the persistent infrastructure for the first Xolis AWS
 - An EKS control plane with public endpoint access.
 - A one-node EKS managed system node group.
 - A self-managed sandbox Auto Scaling group with capacity fixed at zero until the lab tool starts a test.
+- An optional, independent PVM sandbox Auto Scaling group that also starts at
+  zero and never requests EC2 nested virtualization.
 - Amazon VPC CNI network-policy enforcement for sandbox ingress and egress isolation.
 - Three immutable, scan-on-push private ECR repositories.
 - A no-ingress security group and least-privilege instance profile for
@@ -21,6 +23,12 @@ The public-subnet layout intentionally avoids a NAT gateway during early
 experiments. It is not a production network design. Set `sandbox_ami_id` to the
 versioned custom Kata AMI built from `image/aws`. The validated baseline does not
 require Nydus.
+
+Set `pvm_ami_id` to a validated PVM AMI to create the isolated PVM launch
+template and ASG. PVM nodes receive `xolis.io/virtualization=pvm` and
+`xolis.io/pvm-ready=true`, plus a dedicated `xolis.io/pvm=true:NoSchedule`
+taint. They remain distinct from the native-KVM sandbox ASG and can be scaled
+or destroyed independently.
 
 ## Prepare Configuration
 

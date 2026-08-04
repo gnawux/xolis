@@ -18,6 +18,16 @@ output "sandbox_node_selector" {
   value       = "xolis.io/kata-ready=true"
 }
 
+output "pvm_autoscaling_group" {
+  description = "Name of the optional PVM sandbox Auto Scaling group, or null when disabled."
+  value       = try(aws_autoscaling_group.pvm[0].name, null)
+}
+
+output "pvm_node_selector" {
+  description = "Selector used to identify PVM-capable sandbox nodes."
+  value       = "xolis.io/pvm-ready=true"
+}
+
 output "configure_kubectl" {
   description = "Command that writes kubeconfig for the lab cluster."
   value       = "aws eks update-kubeconfig --region ${var.region} --name ${aws_eks_cluster.this.name}"

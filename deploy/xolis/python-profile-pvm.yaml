@@ -1,0 +1,121 @@
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxTemplate
+metadata:
+  name: python-pvm-v1
+  namespace: xolis-sandboxes
+  labels:
+    app.kubernetes.io/part-of: xolis
+    xolis.io/profile: python-pvm-v1
+    xolis.io/virtualization: pvm
+spec:
+  networkPolicyManagement: Managed
+  networkPolicy:
+    ingress:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: xolis-system
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: sandbox-router
+        ports:
+          - protocol: TCP
+            port: 8888
+    egress:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: kube-system
+        ports:
+          - protocol: UDP
+            port: 53
+          - protocol: TCP
+            port: 53
+  podTemplate:
+    metadata:
+      labels:
+        app.kubernetes.io/name: xolis-runtime-python
+        app.kubernetes.io/part-of: xolis
+        xolis.io/profile: python-pvm-v1
+        xolis.io/virtualization: pvm
+    spec:
+      runtimeClassName: xolis-kata-pvm
+      automountServiceAccountToken: false
+      restartPolicy: OnFailure
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: python-runtime
+          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-python@sha256:a5cf56ce18d83a8eb905d7fad0b845f46063b9a54c743b4aaba5b9b1f5e7158f
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: XOLIS_WORKSPACE
+              value: /workspace
+            - name: XOLIS_MAXIMUM_COMMAND_TIMEOUT_SECONDS
+              value: "300"
+            - name: XOLIS_MAXIMUM_OUTPUT_BYTES
+              value: "1048576"
+            - name: XOLIS_MAXIMUM_UPLOAD_BYTES
+              value: "10485760"
+          ports:
+            - name: runtime
+              containerPort: 8888
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: runtime
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: runtime
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+              ephemeral-storage: 4Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: temporary
+              mountPath: /tmp
+      volumes:
+        - name: workspace
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: temporary
+          emptyDir:
+            sizeLimit: 64Mi
+---
+apiVersion: extensions.agents.x-k8s.io/v1beta1
+kind: SandboxWarmPool
+metadata:
+  name: python-pvm-v1-pool
+  namespace: xolis-sandboxes
+  labels:
+    app.kubernetes.io/part-of: xolis
+    xolis.io/profile: python-pvm-v1
+    xolis.io/virtualization: pvm
+spec:
+  replicas: 0
+  sandboxTemplateRef:
+    name: python-pvm-v1

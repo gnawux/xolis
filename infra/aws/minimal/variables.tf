@@ -46,6 +46,24 @@ variable "sandbox_ami_id" {
   nullable    = true
 }
 
+variable "pvm_ami_id" {
+  description = "Optional validated PVM AMI. When set, create a separate scale-to-zero PVM sandbox ASG."
+  type        = string
+  default     = null
+  nullable    = true
+
+  validation {
+    condition     = var.pvm_ami_id == null || can(regex("^ami-[0-9a-f]+$", var.pvm_ami_id))
+    error_message = "pvm_ami_id must be null or an EC2 AMI ID."
+  }
+}
+
+variable "pvm_instance_type" {
+  description = "Instance type for the optional PVM sandbox ASG. It does not require nested virtualization."
+  type        = string
+  default     = "c7i.xlarge"
+}
+
 variable "admin_principal_arn" {
   description = "IAM role ARN granted AmazonEKSClusterAdminPolicy access to the cluster. Set this to the IAM Identity Center role used for the lab."
   type        = string

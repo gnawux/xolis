@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: xolis-kata-pvm-smoke
+  namespace: xolis-system
+  labels:
+    app.kubernetes.io/name: xolis-kata-pvm-smoke
+    app.kubernetes.io/part-of: xolis
+    xolis.io/virtualization: pvm
+spec:
+  runtimeClassName: xolis-kata-pvm
+  restartPolicy: Never
+  containers:
+    - name: smoke
+      image: public.ecr.aws/docker/library/busybox:1.37.0
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          echo "Xolis PVM Kata smoke test is running"
+          uname -a
+          cat /etc/resolv.conf
+          nslookup kubernetes.default.svc.cluster.local
+          wget -qO- https://checkip.amazonaws.com
+          sleep 30
