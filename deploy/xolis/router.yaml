@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: router
-          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/sandbox-router@sha256:a269a1efa18c5aa44189222e01feab1cabd6c8d147bf73bda722b15da2cebd75
+          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/sandbox-router@sha256:7d9be299a68e968f708e1d2c3493510709d3884aa6a87578cdb79794be3a9c4a
           imagePullPolicy: IfNotPresent
           args:
             - --http-bind-address=:8080

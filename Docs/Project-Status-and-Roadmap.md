@@ -15,8 +15,9 @@ runtime path. It does not yet constitute a PVM EKS node release: the custom
 kernel, runtime-rs, and Dragonball combination has passed standalone host and
 CRI qualification, and the immutable AMI pipeline has passed its reboot and
 publication gate. The isolated EKS node pool and CNI data path have also passed
-their first qualification; complete Xolis lifecycle and native-KVM regression
-remain in progress.
+their first qualification. The core Xolis lifecycle, including SSE and
+interactive PTY, has passed; Hermes, failure injection, and native-KVM
+regression remain in progress.
 
 ## 1. Current Development Progress
 
@@ -63,11 +64,21 @@ The PVM investigation has moved beyond source-build feasibility:
 - an isolated EKS node pool and `RuntimeClass/xolis-kata-pvm` have passed node
   registration, PVM guest boot, VPC CNI addressing, cluster DNS, public egress,
   DNS-only NetworkPolicy denial, containerd and kubelet restart, and cold node
-  replacement.
+  replacement; and
+- the `python-pvm-v1` profile has passed idempotent and tenant-scoped creation,
+  PVM placement, buffered commands, timeouts, file operations and bounds,
+  denied egress, explicit deletion, TTL cleanup, cold claims, a one-replica
+  warm pool, reset, SSE streaming, interactive PTY, no-fallback scheduling,
+  and ASG scale-to-zero cleanup.
 
 Five consecutive cached-image two-vCPU CRI smoke runs completed in 4.457 to
 4.528 seconds. This is a single-host integration measurement, not a sandbox
 Ready latency, density result, or large-cluster performance claim.
+
+One EKS Xolis functional sample reached a cold PVM Sandbox Ready state in
+8.915 seconds and one warm-pool sample reached Ready in 1.390 seconds. First
+command latency was 0.429 and 0.396 seconds, respectively. These are single
+functional samples, not a statistically useful comparison or release claim.
 
 ### Delivered Service Components
 
@@ -168,9 +179,9 @@ Important current limitations are:
 - Nydus is validated only as an opt-in single-node comparison path, and
   Dragonfly distribution is not implemented;
 - PVM is validated through the immutable AMI, isolated EKS scheduling, and
-  CNI-backed guest network boundary, but the Xolis lifecycle acceptance,
-  kernel operations policy, final scale-to-zero cleanup, and native-KVM
-  regression gates have not completed; and
+  CNI-backed guest network and core Xolis lifecycle boundary, including SSE
+  streaming and interactive PTY, but Hermes, broader failure injection, kernel
+  operations policy, and native-KVM regression gates have not completed; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -253,9 +264,10 @@ release gates remain in
 
 Remaining development, in order:
 
-1. Run the provider-neutral lifecycle suite on PVM: buffered and SSE commands,
-   PTY, uploads and downloads, metadata and xattrs, timeouts, tenant isolation,
-   foreground deletion, TTL, warm-pool reset, node loss, and repeated cleanup.
+1. Complete the remaining provider-neutral lifecycle gates on PVM: Hermes,
+   node loss, and broader failure injection. Preserve the already passing
+   buffered and SSE commands, interactive PTY, file, policy, deletion, TTL,
+   warm-pool reset, no-fallback, and repeated cleanup paths as regressions.
 2. Run the native-KVM regression suite from the same release candidate, then
    validate ordinary OCI on PVM. Treat Nydus as a later optional PVM test and
    keep Dragonfly outside the first PVM release gate.

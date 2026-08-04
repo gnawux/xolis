@@ -48,9 +48,13 @@ packages the verified Kata runtime-rs and Dragonball installation.
 
 The first pinned artifact set has passed standalone one- and two-vCPU runtime
 qualification on a host without `vmx` or `svm` and is retained in private,
-versioned S3 storage with manifests and SHA-256 checksums. The next image task
-is not another source feasibility build: it is a separate immutable PVM Packer
-pipeline that consumes those artifacts, reboots and validates the resulting
-host, and publishes an AMI for an isolated EKS node pool. See
+versioned S3 storage with manifests and SHA-256 checksums. A separate PVM
+Packer pipeline now consumes those artifacts, reboots and validates the host,
+and publishes an AMI for an isolated EKS node pool. That image has passed its
+first EKS runtime, network-policy, and core Xolis lifecycle qualification. See
 [`image/aws/pvm/README.md`](aws/pvm/README.md) for commands and exact artifact
 identities.
+
+The temporary application-image builder removes its source archive, all object
+versions, and delete markers from a versioned source bucket before completing.
+It also verifies that its EC2 builder reached the terminated state.

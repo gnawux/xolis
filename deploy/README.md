@@ -104,6 +104,17 @@ Agent Sandbox and the base Xolis deployment are installed. This adds the
 `python-pvm-v1` template and a zero-replica warm pool without changing the
 stable `python-basic-v1` profile.
 
+The August 4, 2026 PVM lifecycle run used API digest
+`sha256:0efdfe3c540b496827929069c73f31794fbe9e832ddbff7b33283d0ef1c03b82`,
+router digest
+`sha256:7d9be299a68e968f708e1d2c3493510709d3884aa6a87578cdb79794be3a9c4a`,
+and Python runtime digest
+`sha256:7dedcfad0e74773d7ec68a613ec76909efc70cbb5351c4f6c8a7df89d32be027`.
+Core service acceptance, TTL, cold and warm claims, reset, SSE streaming,
+interactive PTY, and scale-to-zero cleanup passed. The PTY gate found and
+fixed a missing runtime `websockets` dependency before passing. Hermes remains
+a separate PVM gate.
+
 ## Optional Hermes Agent Profile
 
 The Hermes evaluation uses a separate Python 3.12 image and a zero-replica

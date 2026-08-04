@@ -246,5 +246,26 @@ The Kubernetes smoke test confirmed:
 - containerd and kubelet restarts preserved the runtime handler and subsequent
   guest boot.
 
-The complete Xolis API lifecycle and native-KVM regression remain separate
-release gates.
+The complete Xolis API lifecycle and native-KVM regression were retained as
+separate release gates after this infrastructure smoke test.
+
+## Verified Core Xolis Lifecycle
+
+The `python-pvm-v1` profile passed the service acceptance workflow on August 4,
+2026. The tested paths include idempotent and tenant-scoped creation, PVM
+placement, stdout and stderr, exit status, command timeout, file upload and
+download, traversal and upload limits, denied unapproved egress, explicit
+foreground deletion, absolute TTL cleanup, and a one-replica warm pool.
+
+One cold functional sample reached Sandbox Ready in 8.915 seconds; one warm
+sample reached Ready in 1.390 seconds. First command latency was 0.429 and
+0.396 seconds, respectively. These single samples validate the workflow and
+are not a performance distribution or release claim.
+
+After the tests, the warm pool returned to zero with no remaining claim,
+Sandbox, or Pod. The PVM ASG returned to zero, its instance terminated, and a
+PVM RuntimeClass Pod remained Pending on the system-only cluster rather than
+falling back to another runtime. A later run also passed ordered SSE output and
+WebSocket/PTTY input, output, and exit handling after the runtime image added
+its missing `websockets` dependency. Hermes, broader failure injection, and
+native-KVM regression remain open.

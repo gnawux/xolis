@@ -51,6 +51,8 @@ checks, and published the first immutable PVM AMI. The AMI has also joined an
 EKS 1.35 cluster through an isolated node pool and passed the CNI-backed
 virtio-net, DNS, public and denied egress, NetworkPolicy, Kubernetes scheduling,
 service restart, and cold node replacement gates. The complete Xolis lifecycle
+has passed through the buffered command, SSE streaming, interactive PTY, file,
+policy, deletion, TTL, and warm-pool paths. Hermes, broader failure injection,
 and native-KVM regression remain open.
 
 ## 2. Confirmed Baseline and Constraints
@@ -272,15 +274,15 @@ Status as of August 4, 2026:
 | --- | --- | --- |
 | 0. Inputs and provenance | Complete for the first pinned baseline; source and artifact identities are carried into AMI tags. | Carry the same identities into later release metadata. |
 | 1. Kernel artifacts | Complete for the pinned host and guest build; artifacts and manifests are archived in versioned S3 storage and digest-enforced by the AMI pipeline. | Rebuild only for an intentional pinned-input update. |
-| 2. Host AMI | Complete for the first baseline. The Packer pipeline retained the rollback entry, rebooted into PVM, passed runtime and host checks, published `ami-01772ceec96a8fa48`, and terminated its builder. | Validate EKS bootstrap and operational replacement through the isolated node pool. |
+| 2. Host AMI | Complete for the first baseline. The Packer pipeline retained the rollback entry, rebooted into PVM, passed runtime and host checks, published `ami-01772ceec96a8fa48`, and terminated its builder. | Repeat EKS bootstrap and operational replacement during release qualification. |
 | 3. Dragonball bring-up | CPU, memory, block, vsock, time, inline virtio-fs, xattrs, repeated start, teardown, VPC CNI networking, DNS, and egress policy passed. | Add focused failure injection beyond service and node replacement. |
 | 4. Runtime-rs integration | Dedicated `xolis-kata-pvm` handler, readiness validation, direct CRI and kubelet execution, one/two vCPUs, service restart, and cleanup passed. | Run the native-KVM regression gate. |
-| 5. Isolated node pool | Launch template, ASG, labels, taints, RuntimeClass, profile, cold replacement, and independent scheduling passed. | Confirm final scale-to-zero cleanup after the lifecycle run. |
-| 6. Xolis lifecycle | Not started on PVM. | Run the complete provider-neutral acceptance, failure, warm-pool, and Hermes workflows. |
+| 5. Isolated node pool | Launch template, ASG, labels, taints, RuntimeClass, profile, cold replacement, independent scheduling, no-fallback behavior, and scale-to-zero cleanup passed. | Repeat during release qualification. |
+| 6. Xolis lifecycle | Core create, placement, buffered and SSE commands, interactive PTY, file, policy, explicit deletion, TTL, cold claim, warm-pool claim, reset, and cleanup paths passed. | Qualify Hermes, node loss, and broader failure injection. |
 | 7. Operations and security | Artifact provenance and initial diagnostics are documented. | Complete CVE ownership, `pti=off` risk acceptance, upgrade, rollback, replacement, and incident procedures. |
 
-The critical path is therefore the complete Phase 6 lifecycle gate, followed
-by final scale-to-zero cleanup and the native-KVM regression.
+The critical path is therefore the remaining Phase 6 Hermes and failure gates,
+followed by the native-KVM regression.
 Large-cluster performance and density remain outside this milestone.
 
 ### Phase 0: Pin Inputs and Provenance

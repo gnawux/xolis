@@ -52,7 +52,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: python-runtime
-          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-python@sha256:a5cf56ce18d83a8eb905d7fad0b845f46063b9a54c743b4aaba5b9b1f5e7158f
+          image: 479874045111.dkr.ecr.ap-northeast-1.amazonaws.com/xolis/xolis-runtime-python@sha256:7dedcfad0e74773d7ec68a613ec76909efc70cbb5351c4f6c8a7df89d32be027
           imagePullPolicy: IfNotPresent
           env:
             - name: PYTHONDONTWRITEBYTECODE
