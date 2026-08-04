@@ -12,6 +12,12 @@ Python workspace, waits for it to become ready, runs commands, transfers files,
 and removes the workspace at an enforced deadline. It is an architecture and
 API validation milestone, not a production multi-tenant service.
 
+This document preserves the initial service contract and records the extensions
+that had been validated by `v0.3.0`. It is no longer a list of only future
+intent: SSE command streaming, WebSocket/PTTY sessions, optional Nydus profiles,
+an isolated PVM runtime path, Hermes bootstrap, and one-replica warm-pool claims
+are now implemented and qualified within the small AWS lab boundary.
+
 ## Design Decisions
 
 - Use Kubernetes SIG Agent Sandbox as the lifecycle implementation. Do not
@@ -20,8 +26,8 @@ API validation milestone, not a production multi-tenant service.
   baseline.
 - Use `SandboxTemplate`, `SandboxWarmPool`, and `SandboxClaim`. Configure the
   initial warm pool with zero replicas so a claim takes the controller's cold
-  path without paying for an idle Kata VM. A later latency experiment can set
-  the pool to one.
+  path without paying for an idle Kata VM. The same profile can be scaled to one
+  Ready replica for bounded warm-pool operation; both modes are now validated.
 - Run all control-plane components on the EKS managed system node group. Only
   sandbox runtime Pods run on the tainted self-managed sandbox nodes.
 - Force `runtimeClassName: xolis-kata` in the server-owned template. Clients
@@ -35,8 +41,9 @@ API validation milestone, not a production multi-tenant service.
   During this milestone an operator starts the dedicated sandbox Auto Scaling
   group before serving requests and returns it to zero after the test. Workload
   driven EC2 scaling is deferred.
-- Use ordinary OCI images for the first service. Nydus conversion and lazy
-  loading are performance work after the functional service passes.
+- Use ordinary OCI images for the default service. Keep Nydus and PVM behind
+  explicit, isolated RuntimeClasses and profiles so neither can replace or
+  silently receive traffic from the stable OCI/native-KVM path.
 
 ## Logical Architecture
 
@@ -48,7 +55,7 @@ flowchart LR
     ASC --> Claim["SandboxClaim"]
     Claim --> Sandbox["Sandbox and headless Service"]
     Sandbox --> Pod["Runtime Pod"]
-    Pod --> Kata["Kata runtime-rs and Dragonball"]
+    Pod --> Kata["Kata runtime-rs and Dragonball<br/>native KVM or isolated PVM"]
 
     API --> Router["Agent Sandbox router"]
     Router --> Service["Sandbox headless Service"]
@@ -145,6 +152,8 @@ the same pinned release. The runtime runs as UID 1000 and exposes port 8888 for:
 
 - health and readiness;
 - non-interactive command execution;
+- ordered SSE command output;
+- interactive WebSocket/PTTY sessions;
 - file upload and download;
 - directory listing and path existence checks.
 
@@ -168,7 +177,7 @@ The first server-owned profile is `python-basic-v1`:
 | Ephemeral storage limit | `4Gi` |
 | Workspace | `emptyDir`, size limit `2Gi` |
 | Service port | `8888` |
-| Restart policy | `OnFailure` |
+| Restart policy | `Always`, so a Sandbox can recover after node loss |
 | Service account token | Disabled |
 | Privilege escalation | Disabled |
 | Linux capabilities | Drop all |
@@ -192,6 +201,8 @@ The first API is intentionally small:
 | `GET` | `/v1/sandboxes/{id}` | Return lifecycle state and deadline. |
 | `DELETE` | `/v1/sandboxes/{id}` | Terminate and foreground-delete the sandbox. |
 | `POST` | `/v1/sandboxes/{id}/commands` | Run one bounded, non-interactive command. |
+| `POST` | `/v1/sandboxes/{id}/commands/stream` | Stream bounded command events over SSE. |
+| `GET` | `/v1/sandboxes/{id}/sessions` | Upgrade to a bounded interactive WebSocket/PTTY session. |
 | `PUT` | `/v1/sandboxes/{id}/files/{path}` | Upload one bounded file. |
 | `GET` | `/v1/sandboxes/{id}/files/{path}` | Download a file or list a directory. |
 
@@ -213,9 +224,10 @@ states are `Pending`, `Running`, `Failed`, `Terminating`, and `Expired`; include
 the underlying Kubernetes condition reason for diagnostics without exposing the
 complete Pod specification.
 
-Interactive terminals, streaming process output, arbitrary environment
-variables, custom images, inbound sandbox services, and suspend/resume are not
-part of this first API.
+Interactive terminals and streaming process output were added without widening
+the profile boundary: clients still cannot submit arbitrary environment
+variables, images, Pod specifications, inbound services, or runtime classes.
+Inbound sandbox services and suspend/resume remain outside this API.
 
 ## Image Plan
 
@@ -313,20 +325,41 @@ behavior in the AWS lab:
 10. Verify the absolute TTL removes an abandoned sandbox.
 11. Return the sandbox ASG to zero and confirm no sandbox Pod or PVC remains.
 
+Additional qualification through `v0.3.0` has also:
+
+12. Verified ordered SSE output and WebSocket/PTTY input, output, resize,
+    timeout, and cancellation behavior.
+13. Verified zero-replica cold claims, one-replica warm claims, replenishment,
+    and reset on both the native-KVM and isolated PVM profiles.
+14. Verified the PVM profile cannot fall back to native KVM and that a Sandbox
+    is recreated after PVM node loss.
+
+## Validated Extensions Through v0.3.0
+
+- `python-nydus-v1` keeps lazy-loaded images opt-in and leaves ordinary OCI as
+  the stable fallback.
+- `python-pvm-v1` uses the dedicated `xolis-kata-pvm` RuntimeClass, immutable PVM
+  AMI, labels, and taints without changing the public lifecycle API.
+- The Hermes OCI, Nydus, and PVM profiles validate image startup and CLI
+  bootstrap; the demo path can claim a prepared warm sandbox and attach a PTY.
+- A five-cold/five-warm PVM comparison on one already-Ready `c7i.xlarge` node
+  measured 8.806-second and 1.385-second mean claim-to-Ready times. The test was
+  sequential, used a warm node and potentially cached image, and is evidence of
+  warm-pool behavior only, not a scale or production-performance claim.
+
 ## Deferred Work
 
 - Public ALB or Gateway API exposure, OIDC, quotas, and multi-tenant namespaces.
-- Statistically useful cold/warm samples and explicit latency targets. The Lab
-  tool implements the comparison workflow, and the initial one-sample AWS
-  validation demonstrated the measurement path.
+- Statistically useful cold/warm distributions, concurrency, density,
+  cache-miss behavior, and explicit latency targets. The Lab tool and bounded
+  PVM samples validate the measurement path but do not establish production
+  performance.
 - Automatic sandbox-node capacity management.
 - Persistent EBS workspaces and filesystem-only suspend/resume.
 - Kata VM memory snapshots or runtime-native checkpoint and restore.
-- Nydus image conversion, lazy loading, Dragonfly distribution, and cache
-  benchmarks.
-- Interactive terminals, streaming commands, port forwarding, and inbound
-  application services.
-- PVM, Confidential Containers, GPUs, and multi-region operation.
+- Dragonfly distribution and representative multi-node cache benchmarks.
+- Port forwarding and inbound application services.
+- Confidential Containers, GPUs, and multi-region operation.
 - A separate database, billing ledger, scheduler, or event bus.
 
 ## Implemented First Milestone

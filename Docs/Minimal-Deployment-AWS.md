@@ -22,10 +22,11 @@ Use the following initial design:
 PVM is not an initial requirement on AWS. AWS supports nested KVM
 virtualization on selected virtual EC2 instance families, and native KVM
 remains the minimal deployment baseline. The experimental PVM path has now
-passed standalone host and Kata runtime qualification on an instance without
-hardware virtualization extensions, but it still requires a separate AMI,
-node group, RuntimeClass, CNI test, and lifecycle qualification before it can
-be selected in this deployment.
+passed standalone host and Kata runtime qualification, immutable AMI creation,
+isolated EKS node registration, CNI and NetworkPolicy, RuntimeClass scheduling,
+the Xolis lifecycle, warm-pool claims, interactive PTY, and node-loss recovery
+on instances without hardware virtualization extensions. It remains a separate
+experimental capability rather than the default AWS baseline.
 
 ## EKS Compatibility
 
@@ -90,6 +91,7 @@ The recommended minimum is two worker nodes:
 | --- | ---: | --- | --- |
 | System managed node group | 1 | t3.large | CoreDNS, EKS add-ons, Agent Sandbox controller, observability, and general workloads. |
 | Sandbox self-managed node group | 1 | m8i.xlarge | Kata and one or more isolated sandbox Pods, with optional Nydus. Enable nested virtualization. |
+| Optional PVM self-managed node group | 0 or 1 | c7i.xlarge | Experimental PVM path using the dedicated PVM AMI, labels, taints, and RuntimeClass; do not enable nested virtualization. |
 
 The node counts above are for a non-production proof of concept. For availability testing, use at least two system nodes across two Availability Zones and at least two sandbox nodes. Size sandbox nodes from measured Kata VM memory overhead and concurrent sandbox demand rather than from the example instance size.
 

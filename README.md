@@ -35,7 +35,7 @@ bounded single-node validation; ordinary OCI remains the default. See
 [Docs/AWS-Lab-Tooling.md](Docs/AWS-Lab-Tooling.md) for prerequisites and test
 workflows.
 
-The post-`v0.2.1` PVM foundation now builds and boots pinned Linux 6.12.33 host
+The `v0.3.0` PVM milestone builds and boots pinned Linux 6.12.33 host
 and guest kernels on an AWS instance without `vmx` or `svm`. Kata 4.0.0
 runtime-rs and upstream Dragonball have passed standalone containerd and CRI
 tests with the dedicated `xolis-kata-pvm` handler, including one- and two-vCPU
@@ -51,6 +51,12 @@ PVM. The Hermes image and its CLI also start through the PVM PTY path, without
 a model call. PVM node-loss recovery and the independent native-KVM lifecycle
 regression have also passed. PVM is not yet a release path: a model-backed
 Hermes workflow and broader failure-injection gates remain open.
+
+A bounded five-sample comparison on one Ready `c7i.xlarge` PVM node measured
+mean claim-to-Ready times of 8.806 seconds with a zero-replica pool and 1.385
+seconds with one Ready warm sandbox. This small-cluster, sequential test shows
+the expected warm-pool effect, but it is not a capacity, concurrency, tail
+latency, or production-performance claim.
 
 Current pre-scale development therefore has two parallel priorities: separate
 the provider-neutral lifecycle and capacity contract from the AWS adapter, and

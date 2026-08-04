@@ -59,6 +59,14 @@ the native-KVM lifecycle regression has passed on a freshly rebuilt EKS 1.35
 AL2023 AMI. A model-backed Hermes workflow and broader failure injection remain
 open.
 
+A bounded EKS comparison on one already-Ready `c7i.xlarge` PVM node ran five
+sequential samples per mode. Zero-replica cold claims reached `Running` in
+8.489-9.547 seconds with an 8.806-second mean; claims from a one-replica warm
+pool reached `Running` in 1.286-1.565 seconds with a 1.385-second mean. The node
+and image cache were not cold. This verifies warm-pool behavior on PVM but is
+not a statistically useful scale, concurrency, tail-latency, or production
+performance result.
+
 ## 2. Confirmed Baseline and Constraints
 
 | Item | Development baseline |
@@ -282,7 +290,7 @@ Status as of August 4, 2026:
 | 3. Dragonball bring-up | CPU, memory, block, vsock, time, inline virtio-fs, xattrs, repeated start, teardown, VPC CNI networking, DNS, and egress policy passed. | Add focused failure injection beyond service and node replacement. |
 | 4. Runtime-rs integration | Dedicated `xolis-kata-pvm` handler, readiness validation, direct CRI and kubelet execution, one/two vCPUs, service restart, cleanup, and the independent native-KVM regression passed. | Preserve both runtime paths as release regressions. |
 | 5. Isolated node pool | Launch template, ASG, labels, taints, RuntimeClass, profile, cold replacement, independent scheduling, no-fallback behavior, and scale-to-zero cleanup passed. | Repeat during release qualification. |
-| 6. Xolis lifecycle | Core create, placement, buffered and SSE commands, interactive PTY, file, policy, explicit deletion, TTL, cold claim, warm-pool claim, reset, cleanup, Hermes CLI bootstrap, and node-loss recovery paths passed. | Qualify a model-backed Hermes workflow and broader failure injection. |
+| 6. Xolis lifecycle | Core create, placement, buffered and SSE commands, interactive PTY, file, policy, explicit deletion, TTL, cold claim, warm-pool claim, reset, cleanup, Hermes CLI bootstrap, node-loss recovery, and a bounded five-sample cold/warm comparison passed. | Qualify a model-backed Hermes workflow and broader failure injection; defer scale and tail-latency claims. |
 | 7. Operations and security | Artifact provenance and initial diagnostics are documented. | Complete CVE ownership, `pti=off` risk acceptance, upgrade, rollback, replacement, and incident procedures. |
 
 The critical path is therefore the remaining Phase 6 model-backed Hermes and

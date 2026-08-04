@@ -10,22 +10,20 @@ Nydus path, and interactive Hermes Agent demonstration described below. The
 Kata Containers PR #13510 so the fixed Kata 4.0.0 AMI build supports the inline
 virtio-fs metadata operations exercised by Hermes.
 
-Development on `main` after `v0.2.1` adds the first verified PVM host and
-runtime path. It does not yet constitute a PVM EKS node release: the custom
-kernel, runtime-rs, and Dragonball combination has passed standalone host and
-CRI qualification, and the immutable AMI pipeline has passed its reboot and
-publication gate. The isolated EKS node pool and CNI data path have also passed
-their first qualification. The core Xolis lifecycle, including SSE and
-interactive PTY, has passed. The Hermes image and CLI bootstrap have passed
-without a model call. PVM node-loss recovery and an independent native-KVM
-lifecycle regression have also passed; a model-backed Hermes workflow and
-broader failure injection remain in progress.
+The `v0.3.0` release identifies the first verified PVM host, runtime, immutable
+AMI, isolated EKS node pool, and Xolis lifecycle milestone. The custom kernel,
+runtime-rs, and Dragonball combination has passed standalone host and CRI
+qualification; the EKS CNI, scheduling, lifecycle, SSE, interactive PTY,
+warm-pool, node-loss recovery, and independent native-KVM regression gates have
+also passed. This is an experimental qualification release, not a production
+PVM support claim. A model-backed Hermes workflow and broader failure injection
+remain in progress.
 
 ## 1. Current Development Progress
 
 ### Delivered Architecture
 
-The AWS lab currently provides:
+The AWS lab can reproducibly provision:
 
 - An Amazon EKS control plane in `ap-northeast-1`.
 - One EKS managed node group for system components.
@@ -38,6 +36,11 @@ The AWS lab currently provides:
   environment.
 - Amazon VPC CNI NetworkPolicy enforcement for sandbox traffic isolation.
 - Immutable, scan-on-push private ECR repositories for Xolis images.
+
+The disposable EKS cluster used for the August 4 qualification was destroyed
+after the tests. The two validated AMIs and their snapshots, the private ECR
+images, and the versioned PVM S3 artifacts were retained so the environment can
+be recreated without repeating the kernel and runtime builds.
 
 The validated AMI now also contains an opt-in Nydus path. Ordinary OCI remains
 the default and fallback; Nydus requires the separate `xolis-kata-nydus`
@@ -87,10 +90,11 @@ Five consecutive cached-image two-vCPU CRI smoke runs completed in 4.457 to
 4.528 seconds. This is a single-host integration measurement, not a sandbox
 Ready latency, density result, or large-cluster performance claim.
 
-One EKS Xolis functional sample reached a cold PVM Sandbox Ready state in
-8.915 seconds and one warm-pool sample reached Ready in 1.390 seconds. First
-command latency was 0.429 and 0.396 seconds, respectively. These are single
-functional samples, not a statistically useful comparison or release claim.
+The final bounded PVM comparison ran five sequential cold samples and five
+sequential warm samples on one already-Ready PVM node. It is summarized in the
+performance section below. The sample count, cluster size, and lack of
+concurrency make it useful for validating warm-pool behavior only, not for a
+production performance or scalability claim.
 
 ### Delivered Service Components
 
@@ -164,6 +168,35 @@ approximately 123 seconds: about 98 seconds for node capacity and 26 seconds for
 the sandbox. Keeping capacity available removes the EC2 and EKS node-start phase;
 keeping one sandbox warm additionally reduced claim-to-Ready latency to about
 1.4 seconds in this sample.
+
+### Bounded PVM Cold and Warm Comparison
+
+On 2026-08-04, Xolis ran five sequential samples per mode in
+`ap-northeast-1` on EKS 1.35. The system pool had one `t3.large` node and the
+isolated PVM pool had one `c7i.xlarge` node using
+`ami-01772ceec96a8fa48`, Linux `6.12.33-xolis-pvm`, Kata Containers 4.0.0
+runtime-rs, upstream Dragonball, and `RuntimeClass/xolis-kata-pvm`. Both modes
+used Python runtime digest
+`sha256:7dedcfad0e74773d7ec68a613ec76909efc70cbb5351c4f6c8a7df89d32be027`
+and the same already-Ready PVM node. Tests ran one at a time with no competing
+sandbox workload.
+
+Here, cold means `SandboxWarmPool.spec.replicas=0`; it does not mean a cold EC2
+node or an empty containerd image cache. Warm means one complete Sandbox was
+Ready before the claim. Each sample measured the interval from the Xolis create
+request to the public `Running` state, then exercised placement, commands,
+files, denied egress, and explicit cleanup. TTL was excluded.
+
+| Mode | Samples | Minimum | Mean | Median | Maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold, pool size 0 | 5 | 8.489 s | 8.806 s | 8.587 s | 9.547 s |
+| Warm, pool size 1 | 5 | 1.286 s | 1.385 s | 1.354 s | 1.565 s |
+
+The mean warm result was 6.36 times faster and 7.421 seconds lower than the
+mean cold result in this bounded run. This is a small-cluster, low-concurrency
+functional comparison only. Five sequential samples cannot establish p95 or
+p99 latency, throughput, density, behavior under image-cache misses, or
+production performance.
 
 ### Current Availability Boundary
 
@@ -372,10 +405,10 @@ The next milestone has two bounded deliverables:
 
 1. define and implement the cloud-neutral capacity and lifecycle boundary while
    retaining AWS as the first provider adapter; and
-2. convert the verified PVM kernel/runtime artifacts into an immutable PVM AMI
-   and isolated EKS node pool, then pass CNI and the existing functional
-   lifecycle suite without relying on provider-supplied nested virtualization.
+2. turn the verified PVM AMI and isolated EKS path into a repeatable release
+   qualification workflow, including the remaining model-backed Hermes,
+   failure-injection, kernel maintenance, upgrade, and rollback gates.
 
-No large-cluster performance claim is required for this milestone. Its purpose
-is to prove architectural portability and the alternative virtualization path
-before scaling the system.
+No large-cluster performance claim is required for this milestone. The bounded
+PVM cold/warm result validates the warm-pool mechanism only; scale and tail
+latency remain deferred.

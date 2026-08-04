@@ -37,7 +37,7 @@ class ExecuteResponse(BaseModel):
 
 def create_app(settings: RuntimeSettings | None = None) -> FastAPI:
     runtime_settings = settings or RuntimeSettings.from_environment()
-    application = FastAPI(title="Xolis Python Runtime", version="0.2.1")
+    application = FastAPI(title="Xolis Python Runtime", version="0.3.0")
 
     @application.get("/")
     @application.get("/healthz")

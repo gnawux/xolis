@@ -225,6 +225,40 @@ Ready times of 16.601/10.415 seconds. Nydus ran first. The run validates the
 optional path and shows that mount startup currently outweighs the pull-time
 reduction; it is not a controlled benchmark or a performance claim.
 
+### Bounded PVM Cold and Warm Validation
+
+On 2026-08-04, the Tokyo lab ran five sequential samples with a zero-replica
+pool and five with a one-replica pool. The environment was EKS 1.35 with one
+`t3.large` system node and one already-Ready `c7i.xlarge` PVM sandbox node.
+The PVM node used `ami-01772ceec96a8fa48`, Linux
+`6.12.33-xolis-pvm`, Kata Containers 4.0.0 runtime-rs, upstream Dragonball,
+and `RuntimeClass/xolis-kata-pvm`. All samples used the same digest-pinned
+Python runtime image,
+`sha256:7dedcfad0e74773d7ec68a613ec76909efc70cbb5351c4f6c8a7df89d32be027`,
+and ran without concurrent sandbox requests.
+
+Cold in this comparison means only that `SandboxWarmPool.spec.replicas` was
+zero. The EC2 node was already Ready and the image could be present in the
+containerd cache. Warm means one complete Sandbox was Ready before the claim.
+The recorded claim-to-`Running` results were:
+
+| Mode | Samples | Minimum | Mean | Median | Maximum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Cold, pool size 0 | 5 | 8.489 s | 8.806 s | 8.587 s | 9.547 s |
+| Warm, pool size 1 | 5 | 1.286 s | 1.385 s | 1.354 s | 1.565 s |
+
+The warm mean was 6.36 times faster in this run. These results demonstrate the
+warm-pool handoff on the qualified PVM path, but the one-node, sequential,
+five-sample setup is too small for throughput, density, p95/p99, image-cache,
+or production-performance conclusions.
+
+After the run, the warm pools, claims, EKS cluster, node groups, Auto Scaling
+groups, VPC, subnets, and temporary validation instance were deleted. The
+validated AMIs and snapshots, private ECR images, and versioned PVM S3 artifacts
+were intentionally retained. Scaling sandbox ASGs to zero is not a complete lab
+teardown because the EKS control plane and system node group continue to incur
+cost until the infrastructure is destroyed.
+
 ## Required Local Dependencies
 
 - Python 3.11 or later.

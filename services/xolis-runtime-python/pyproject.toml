@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xolis-runtime-python"
-version = "0.2.1"
+version = "0.3.0"
 description = "Bounded Python runtime service for Xolis sandboxes"
 requires-python = ">=3.12"
 dependencies = [

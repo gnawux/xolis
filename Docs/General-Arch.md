@@ -62,14 +62,16 @@ unchanged while replacing the host virtualization path. The matched stack is:
 - versioned kernel and runtime bundles with manifests and SHA-256 checksums.
 
 This stack has passed standalone host, containerd, and CRI qualification on an
-AWS `c7i.4xlarge` that exposed neither `vmx` nor `svm`. It has not yet passed
-EKS CNI, Kubernetes scheduling, Xolis lifecycle, or native-KVM regression
-qualification. The deployment architecture must therefore keep PVM in a
-separate AMI, node group, label and taint domain, RuntimeClass, sandbox profile,
-and observability dimension. There is no automatic fallback between PVM and
-native KVM.
+AWS `c7i.4xlarge` that exposed neither `vmx` nor `svm`. The immutable PVM AMI
+has also passed EKS 1.35 node registration, CNI, Kubernetes scheduling, Xolis
+lifecycle, streaming, interactive PTY, warm-pool, node-loss recovery, and
+native-KVM regression qualification on an isolated `c7i.xlarge` pool. The
+deployment architecture keeps PVM in a separate AMI, node group, label and
+taint domain, RuntimeClass, sandbox profile, and observability dimension. There
+is no automatic fallback between PVM and native KVM.
 
-The next architectural gate is to prove that the same provider-neutral
-lifecycle contract works on both the stable native-KVM pool and the isolated
-PVM pool while AWS provisioning remains an adapter outside the public service
-API.
+The remaining architectural work is to formalize the provider-neutral capacity
+contract while AWS provisioning remains an adapter outside the public service
+API, and to complete model-backed agent, failure-injection, and PVM kernel
+operations gates. A bounded one-node cold/warm comparison validates the
+warm-pool mechanism but does not establish scale or production performance.

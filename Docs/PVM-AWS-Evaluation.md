@@ -25,6 +25,20 @@ results prove the standalone host/runtime path only; they do not establish
 Kubernetes readiness, network performance, density, security suitability, or
 an economic advantage.
 
+The subsequent EKS 1.35 qualification used the immutable PVM AMI
+`ami-01772ceec96a8fa48` on an isolated `c7i.xlarge` node. It passed node
+registration, VPC CNI networking, DNS, NetworkPolicy, Kubernetes scheduling,
+the Xolis lifecycle, SSE, interactive PTY, warm-pool claims, node-loss recovery,
+and an independent native-KVM regression.
+
+A final five-cold/five-warm sequential comparison on the already-Ready PVM node
+measured claim-to-`Running` means of 8.806 seconds with a zero-replica pool and
+1.385 seconds with one Ready warm Sandbox. The corresponding ranges were
+8.489-9.547 and 1.286-1.565 seconds. Cold did not include EC2 node startup and
+did not guarantee an empty image cache. This one-node, low-concurrency test is
+evidence that warm-pool handoff works; it is not a general PVM performance,
+capacity, or scalability result.
+
 ## What PVM Changes
 
 PVM is a software-implemented paravirtualized flavor of KVM for x86. Its intended use case includes running secure containers when nested virtualization is disabled and hardware virtualization assistance is unavailable.
@@ -93,7 +107,9 @@ Do not mix native-KVM Kata nodes and PVM-backed nodes in the same unlabelled cap
 
 The following questions are intentionally deferred to a controlled benchmark and compatibility effort:
 
-- Sandbox cold-start latency.
+- Statistically representative cold and warm latency, including p95 and p99.
+- Concurrent throughput, failure rate, and sandbox density.
+- Node-cold and image-cache-miss startup behavior.
 - Steady-state CPU overhead.
 - Memory overhead and sandbox density per node.
 - I/O, network, and image-lazy-loading performance.

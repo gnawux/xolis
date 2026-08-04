@@ -127,6 +127,13 @@ Hermes PVM profile subsequently passed image startup and `hermes --help`
 through both buffered and PTY paths without a model call. A model-backed Hermes
 workflow remains a separate PVM gate.
 
+A bounded August 4 comparison on one already-Ready `c7i.xlarge` PVM node ran
+five sequential samples per mode. Zero-replica cold claims had an 8.806-second
+mean claim-to-Ready time; claims from a one-replica warm pool had a 1.385-second
+mean. The node startup path and image-cache misses were not part of this test.
+The result validates warm-pool handoff only and must not be presented as a
+large-cluster, concurrent, tail-latency, or production-performance result.
+
 ## Optional Hermes Agent Profile
 
 The Hermes evaluation uses a separate Python 3.12 image and a zero-replica
