@@ -79,6 +79,30 @@ compressed archive plus machine-readable manifest. It does not upload the
 archive or select a bucket; the image pipeline or operator must copy the output
 from `/opt/xolis-artifacts/runtime/` to durable artifact storage.
 
+## AMI Build
+
+`packer.pkr.hcl` builds a separate PVM node AMI from the pinned EKS-optimized
+AL2023 source. It downloads the published kernel and runtime artifacts from a
+private bucket, verifies both the pinned top-level digests and every file in
+the manifests, installs the PVM kernel and isolated runtime handler, reboots,
+and runs the host readiness checks before creating the AMI. The builder does
+not request nested virtualization.
+
+Copy `xolis-pvm.pkrvars.hcl.example` to an ignored location, supply a public
+build subnet and the private artifact bucket, then run:
+
+```console
+cd image/aws/pvm
+packer init .
+packer validate -var-file=/path/to/xolis-pvm.pkrvars.hcl .
+packer build -on-error=cleanup \
+  -var-file=/path/to/xolis-pvm.pkrvars.hcl .
+```
+
+The Session Manager communicator requires the AWS Session Manager plugin on
+the operator workstation. Keep variable files and downloaded tooling under
+`.codex-tmp/`; do not commit account-specific bucket or subnet values.
+
 ## Required Validation
 
 `validate-kernel-config.py` checks the final configs after Kconfig dependency
@@ -87,9 +111,9 @@ storage, vsock, and inline virtio-fs prerequisites required by the first Xolis
 baseline.
 
 The PVM host must eventually boot with `pti=off`; enabling the configuration
-symbol alone is not sufficient. The AMI phase must reboot the builder and
-verify `/proc/cmdline`, the running kernel, `kvm-pvm`, and `/dev/kvm` before it
-creates an image.
+symbol alone is not sufficient. The AMI phase reboots the builder and verifies
+`/proc/cmdline`, the running kernel, `kvm-pvm`, and `/dev/kvm` before it creates
+an image.
 
 Any temporary builder must be terminated after artifact collection, including
 after failures or interrupted runs. Verify the final instance state from AWS
@@ -180,3 +204,22 @@ Its adjacent manifest records the hashes of `kata-runtime`,
 build provenance. The retained validation instance is stopped after testing;
 its 200 GiB root EBS volume is retained only to accelerate the next AMI and
 network qualification session.
+
+## Verified PVM AMI
+
+The first complete Packer run finished on August 4, 2026, in
+`ap-northeast-1`. It consumed the verified S3 artifacts without rebuilding
+them, booted `6.12.33-xolis-pvm`, and passed both `PVM_RUNTIME_READY` and
+`PVM_AMI_READY` before publishing account-local AMI
+`ami-01772ceec96a8fa48` with snapshot `snap-0d0e8da8b5ae1b4a0`.
+
+The AMI tags record the source AMI, PVM and Kata commits, required `pti=off`
+argument, and kernel/runtime manifest and archive digests. The 80 GiB encrypted
+XFS root volume retained the source AL2023 kernel as a rollback boot entry.
+Packer terminated builder `i-0d1a264230f14176d`; an AWS-side audit also
+confirmed no Packer security group, key pair, IAM role, or instance profile
+remained after cleanup.
+
+This proves the immutable image stage only. EKS node registration, VPC CNI,
+DNS, network policy, Kubernetes scheduling, and full Xolis lifecycle testing
+remain separate qualification gates.

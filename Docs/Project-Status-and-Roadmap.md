@@ -13,8 +13,9 @@ virtio-fs metadata operations exercised by Hermes.
 Development on `main` after `v0.2.1` adds the first verified PVM host and
 runtime path. It does not yet constitute a PVM EKS node release: the custom
 kernel, runtime-rs, and Dragonball combination has passed standalone host and
-CRI qualification, while the immutable AMI pipeline, isolated EKS node pool,
-CNI data path, and complete Xolis lifecycle qualification remain in progress.
+CRI qualification, and the immutable AMI pipeline has passed its reboot and
+publication gate. The isolated EKS node pool, CNI data path, and complete Xolis
+lifecycle qualification remain in progress.
 
 ## 1. Current Development Progress
 
@@ -54,7 +55,10 @@ The PVM investigation has moved beyond source-build feasibility:
   teardown, and cleanup have passed; and
 - the matched kernel and 2.26 GB runtime bundles, manifests, and checksums are
   retained in a private versioned S3 artifact bucket under immutable PVM and
-  Kata commit prefixes.
+  Kata commit prefixes; and
+- a separate Packer pipeline verifies those artifacts, reboots into the PVM
+  kernel, validates the isolated runtime handler, and has published the first
+  account-local PVM AMI, `ami-01772ceec96a8fa48` in `ap-northeast-1`.
 
 Five consecutive cached-image two-vCPU CRI smoke runs completed in 4.457 to
 4.528 seconds. This is a single-host integration measurement, not a sandbox
@@ -158,10 +162,10 @@ Important current limitations are:
 - no inbound sandbox service or externally exposed interactive endpoint;
 - Nydus is validated only as an opt-in single-node comparison path, and
   Dragonfly distribution is not implemented;
-- PVM is validated only through the standalone host and CRI boundary: no PVM
-  AMI pipeline, EKS node pool, CNI-backed guest network, RuntimeClass
-  scheduling, Xolis lifecycle acceptance, kernel operations policy, or
-  native-KVM regression gate has completed; and
+- PVM is validated through the immutable AMI and standalone CRI boundary, but
+  no PVM EKS node pool, CNI-backed guest network, RuntimeClass scheduling,
+  Xolis lifecycle acceptance, kernel operations policy, or native-KVM
+  regression gate has completed; and
 - no statistically useful latency distribution, soak test, concurrency test,
   failure-rate measurement, or cost-per-sandbox result.
 
@@ -244,26 +248,22 @@ release gates remain in
 
 Remaining development, in order:
 
-1. Build a separate immutable PVM AMI pipeline from the pinned EKS-optimized
-   AL2023 source. Install the published host kernel, guest kernel, runtime
-   bundle, module policy, `pti=off`, provenance, readiness checks, and rollback
-   boot entry; reboot and validate before creating the AMI.
-2. Add a separate PVM launch template and Auto Scaling group without nested
+1. Add a separate PVM launch template and Auto Scaling group without nested
    virtualization CPU options. Publish explicit capability labels, a dedicated
    taint, `RuntimeClass/xolis-kata-pvm`, and a PVM sandbox profile. Never make
    native KVM and PVM indistinguishable or silently interchangeable.
-3. Join one PVM node to EKS and qualify the VPC CNI-backed virtio-net path,
+2. Join one PVM node to EKS and qualify the VPC CNI-backed virtio-net path,
    DNS, allowed and denied egress, network policy, containerd restart, kubelet
    restart, node reboot, and scale-to-zero cleanup. The standalone builder had
    no CNI binaries or configuration, so network remains an open gate rather
    than a known Dragonball failure.
-4. Run the provider-neutral lifecycle suite on PVM: buffered and SSE commands,
+3. Run the provider-neutral lifecycle suite on PVM: buffered and SSE commands,
    PTY, uploads and downloads, metadata and xattrs, timeouts, tenant isolation,
    foreground deletion, TTL, warm-pool reset, node loss, and repeated cleanup.
-5. Run the native-KVM regression suite from the same release candidate, then
+4. Run the native-KVM regression suite from the same release candidate, then
    validate ordinary OCI on PVM. Treat Nydus as a later optional PVM test and
    keep Dragonfly outside the first PVM release gate.
-6. Complete readiness diagnostics, kernel CVE and rebase ownership, host
+5. Complete readiness diagnostics, kernel CVE and rebase ownership, host
    `pti=off` risk documentation, AMI upgrade and rollback, and node replacement
    procedures before exposing PVM as an operator-selectable capability.
 

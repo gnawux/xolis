@@ -41,10 +41,11 @@ runtime-rs and upstream Dragonball have passed standalone containerd and CRI
 tests with the dedicated `xolis-kata-pvm` handler, including one- and two-vCPU
 boot, block rootfs, vsock, memory, inline virtio-fs, xattrs, exit propagation,
 and repeated cleanup. The matched kernel and runtime artifacts are archived
-with manifests and checksums. PVM is not yet an EKS-ready release: the next
-steps are an immutable PVM AMI, an isolated node pool and RuntimeClass, CNI
-qualification, and the complete Xolis lifecycle and native-KVM regression
-suites.
+with manifests and checksums, and a separate immutable PVM AMI pipeline now
+installs, reboots, validates, and publishes that exact artifact set. PVM is not
+yet an EKS-ready release: the next steps are an isolated node pool and
+RuntimeClass, CNI qualification, and the complete Xolis lifecycle and
+native-KVM regression suites.
 
 Current pre-scale development therefore has two parallel priorities: separate
 the provider-neutral lifecycle and capacity contract from the AWS adapter, and

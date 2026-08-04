@@ -161,6 +161,33 @@ class AmiAssetTests(unittest.TestCase):
         self.assertIn("PVM_RUNTIME_SMOKE_OK", smoke_test)
         self.assertIn("os.listxattr", smoke_test)
 
+    def test_pvm_ami_consumes_verified_artifacts_without_nested_kvm(self) -> None:
+        packer = (ROOT / "image/aws/pvm/packer.pkr.hcl").read_text(encoding="utf-8")
+        installer = (
+            ROOT / "image/aws/pvm/scripts/install-ami-artifacts.sh"
+        ).read_text(encoding="utf-8")
+        validator = (
+            ROOT / "image/aws/pvm/scripts/validate-ami-host.sh"
+        ).read_text(encoding="utf-8")
+        versions = (ROOT / "image/aws/pvm/versions.sh").read_text(encoding="utf-8")
+
+        self.assertIn('source "amazon-ebs" "pvm"', packer)
+        self.assertNotIn("nested_virtualization", packer)
+        self.assertIn("PVM_ARTIFACT_BUCKET", packer)
+        self.assertIn("expect_disconnect = true", packer)
+        self.assertIn("PVM_KERNEL_MANIFEST_SHA256", versions)
+        self.assertIn("PVM_RUNTIME_MANIFEST_SHA256", versions)
+        self.assertIn("PVM_RUNTIME_ARCHIVE_SHA256", versions)
+        self.assertIn("sha256sum --check --status", installer)
+        self.assertIn("grubby --set-default", installer)
+        self.assertIn("module_blacklist=kvm_intel,kvm_amd", installer)
+        self.assertIn("SourceAMI", packer)
+        self.assertIn("KernelManifestSHA", packer)
+        self.assertIn("RuntimeManifestSHA", packer)
+        self.assertIn("RuntimeArchiveSHA", packer)
+        self.assertIn("validate-runtime.sh", validator)
+        self.assertIn("PVM_AMI_READY", validator)
+
 
 if __name__ == "__main__":
     unittest.main()

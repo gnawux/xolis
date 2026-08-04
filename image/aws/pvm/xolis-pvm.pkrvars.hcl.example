@@ -1,0 +1,8 @@
+region          = "ap-northeast-1"
+source_ami_id   = "ami-0f15c654d8131cadd"
+subnet_id       = "subnet-replace-with-public-build-subnet"
+artifact_bucket = "xolis-pvm-artifacts-ACCOUNT-ap-northeast-1"
+
+# This build only installs pinned, prebuilt artifacts. A c7i.xlarge provides
+# enough CPU and memory for validation without enabling nested virtualization.
+builder_instance_type = "c7i.xlarge"
