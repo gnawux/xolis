@@ -449,8 +449,10 @@ mod tests {
         assert_eq!(request.uri().path(), "/interactive");
         assert_eq!(request.headers()["x-sandbox-id"], "xolis-runtime-id");
         assert_eq!(request.headers()["x-sandbox-pod-ip"], "10.42.1.230");
+        assert_eq!(request.headers()["connection"], "Upgrade");
         assert_eq!(request.headers()["upgrade"], "websocket");
         assert!(request.headers().contains_key("sec-websocket-key"));
+        assert_eq!(request.headers()["sec-websocket-version"], "13");
     }
 
     #[tokio::test]
