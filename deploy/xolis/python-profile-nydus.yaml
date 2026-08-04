@@ -41,7 +41,7 @@ spec:
     spec:
       runtimeClassName: xolis-kata-nydus
       automountServiceAccountToken: false
-      restartPolicy: OnFailure
+      restartPolicy: Always
       terminationGracePeriodSeconds: 5
       securityContext:
         runAsNonRoot: true

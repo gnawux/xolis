@@ -6,6 +6,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PvmInfrastructureTests(unittest.TestCase):
+    def test_runtime_profiles_restart_services_after_node_loss(self) -> None:
+        profiles = (
+            ROOT / "deploy/xolis/python-profile.yaml",
+            ROOT / "deploy/xolis/python-profile-nydus.yaml",
+            ROOT / "deploy/xolis/python-profile-pvm.yaml",
+            ROOT / "deploy/xolis/hermes-profile.yaml.in",
+        )
+        for profile in profiles:
+            with self.subTest(profile=profile.name):
+                contents = profile.read_text(encoding="utf-8")
+                self.assertIn("restartPolicy: Always", contents)
+                self.assertNotIn("restartPolicy: OnFailure", contents)
+
     def test_pvm_pool_is_optional_isolated_and_does_not_request_nested_kvm(self) -> None:
         main = (ROOT / "infra/aws/minimal/main.tf").read_text(encoding="utf-8")
         variables = (ROOT / "infra/aws/minimal/variables.tf").read_text(

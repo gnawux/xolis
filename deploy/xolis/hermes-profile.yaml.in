@@ -41,7 +41,7 @@ spec:
     spec:
       runtimeClassName: __RUNTIME_CLASS__
       automountServiceAccountToken: false
-      restartPolicy: OnFailure
+      restartPolicy: Always
       terminationGracePeriodSeconds: 5
       securityContext:
         runAsNonRoot: true
