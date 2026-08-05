@@ -1,0 +1,4 @@
+interface:
+  display_name: "Xolis AWS Cost"
+  short_description: "Audit live Xolis AWS resources and costs"
+  default_prompt: "Use $xolis-aws-cost to audit current AWS resources and estimate Xolis daily and monthly costs."
