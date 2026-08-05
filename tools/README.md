@@ -4,6 +4,42 @@ The AWS lab tool orchestrates repeatable minimal-deployment checks. It requires
 Python 3.11, OpenTofu, AWS CLI, and kubectl. Packer is additionally required when
 building the custom Kata sandbox AMI; Nydus inputs are optional.
 
+## AWS Resource Cost Audit
+
+`xolis_aws_cost.py` performs a read-only inventory of the AWS resources that can
+continue to incur costs after a lab is shut down. It defaults to the
+`xolis-lab` profile, the Tokyo Region, and the `xolis` resource-name prefix:
+
+    python3 tools/xolis_aws_cost.py
+
+The tool first checks the caller identity. With the default `--sso-login auto`
+mode, an expired or missing session starts `aws sso login --profile xolis-lab`
+and retries the identity check. Use `--sso-login always` to refresh before every
+run, or `--sso-login never` in non-interactive automation. The profile and
+Region can be overridden explicitly:
+
+    python3 tools/xolis_aws_cost.py \
+        --profile xolis-lab \
+        --region ap-northeast-1
+
+Use JSON output when retaining or processing an audit result:
+
+    python3 tools/xolis_aws_cost.py --output json > /tmp/xolis-aws-cost.json
+
+The inventory covers active EKS, EC2, EBS, NAT gateway, Elastic IP, load
+balancer, RDS, EFS, FSx, VPC endpoint, Route 53, CloudWatch Logs, and Secrets
+Manager resources. It also finds Xolis AMIs and EBS snapshots, ECR images, S3
+object versions, and incomplete S3 multipart uploads. Snapshot allocation is
+measured through `ebs list-snapshot-blocks`, so a run can take longer when an
+AMI has many allocated blocks.
+
+The daily and monthly estimate intentionally covers idle EBS snapshot, ECR, and
+S3 storage only. ECR totals sum each image's logical size and are therefore an
+upper bound when layers are shared. Active-resource run rates, requests,
+network transfer, taxes, credits, and discount programs are listed but not
+estimated. Recent Cost Explorer unblended totals provide a delayed view of
+actual account charges; the current day can be incomplete or marked estimated.
+
 Copy the example configuration and replace all placeholder resource names:
 
     cp tools/xolis_aws_lab.example.json tools/xolis_aws_lab.json
